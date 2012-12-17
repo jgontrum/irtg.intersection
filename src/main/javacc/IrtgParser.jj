@@ -1,0 +1,269 @@
+/**
+ * JavaCC file
+ */
+
+
+options {
+  JDK_VERSION = "1.5";
+  STATIC = false;
+  LOOKAHEAD=2; // speed up parser by removing this and fixing choice conflict in ctt() differently
+  FORCE_LA_CHECK=true;
+}
+PARSER_BEGIN(IrtgParser)
+package de.up.ling.irtg;
+
+import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.*;
+import java.io.*;
+
+import de.up.ling.irtg.automata.*;
+import de.up.ling.irtg.hom.*;
+import de.up.ling.irtg.maxent.*;
+import de.up.ling.irtg.algebra.*;
+import de.saar.chorus.term.*;
+import de.up.ling.tree.*;
+import de.saar.basic.*;
+import java.lang.reflect.*;
+
+
+/**
+ * Parser for interpreted bottom-up automata
+ * @author Alexander Koller
+ */
+public class IrtgParser {
+    private ConcreteTreeAutomaton<String> automaton = new ConcreteTreeAutomaton<String>();
+    private Map<String,Homomorphism> homomorphisms = new HashMap<String,Homomorphism>();
+    private Map<String,Interpretation> interpretations = new HashMap<String,Interpretation>();
+    private String lastSeenTerminal = null;
+    private Rule<String> lastSeenRule = null;
+    private Map<String, FeatureFunction> features = new HashMap<String, FeatureFunction>();
+
+    private static IrtgParser parser = new IrtgParser(new ByteArrayInputStream(new byte[]{}));
+
+
+    public static InterpretedTreeAutomaton parse(Reader reader) throws ParseException {
+        parser = new IrtgParser(new ByteArrayInputStream(new byte[]{}));
+        parser.ReInit(reader);
+
+	parser.grammar();
+
+        InterpretedTreeAutomaton ret = null;
+
+        if( parser.features.isEmpty() ) {
+            ret = new InterpretedTreeAutomaton(parser.automaton);
+        } else {
+            ret = new MaximumEntropyIrtg(parser.automaton, parser.features);
+        }
+
+        ret.addAllInterpretations(parser.interpretations);
+        return ret;
+    }
+
+    private static Constructor<FeatureFunction> findFeatureConstructor(String className, int n) throws ClassNotFoundException, NoSuchMethodException {
+        Class<FeatureFunction> cl = (Class<FeatureFunction>) Class.forName(className);
+        
+        Class[] args = new Class[n];
+        Arrays.fill(args, String.class);
+        
+        Constructor<FeatureFunction> con = cl.getConstructor(args);
+        return con;
+    }
+}
+PARSER_END(IrtgParser)
+
+SKIP : { <"/*">: INSIDE_COMMENT |  " " | "\t" | "\r" | "\n" }
+<INSIDE_COMMENT>
+SKIP: { <"*/">: DEFAULT | <~[]> }
+
+TOKEN :
+{
+    <INTERPRETATION: "interpretation"> |
+    <FEATURE: "feature"> |
+    < NAME:     ["a"-"z","A"-"Z","_", "*", "$", "@", "+"] (["a"-"z","A"-"Z","_", "<", ">", "+", "-", "0"-"9", "@", "/", "*", ".", "$"] )* > |
+    <QUOTED_NAME: "\'" (~["\'"])* "\'"> |
+    <DOUBLE_QUOTED_NAME: "\"" (~["\""])* "\""> |
+    <VARIABLE : ["?"] (["a"-"z", "A"-"Z", "_", "0"-"9", "-"])*> |
+    <NUMBER : ["0"-"9", "."] (["0"-"9", ".", "e", "E", "-"])* > |
+    < FIN_MARK: [ "\u00b0", "!"] > 
+}
+
+void grammar() :
+{
+}
+{
+    (InterpretationDeclaration() ) +
+    (RuleWithHomomorphisms() | FeatureDeclaration() ) +
+}
+
+void InterpretationDeclaration() :
+{
+    String id;
+    String classname;
+}
+{
+    <INTERPRETATION> id=name() ":" classname=ClassName() {
+       try {
+        Class algebraClass = Class.forName(classname);
+        Algebra algebra = (Algebra) algebraClass.newInstance();
+        Homomorphism hom = new Homomorphism(automaton.getSignature(), algebra.getSignature());
+
+        interpretations.put(id, new Interpretation(algebra, hom));
+        homomorphisms.put(id, hom);
+       } catch(Exception e) {
+        throw new ParseException("Could not instantiate algebra class " + classname + " for interpretation " + id + ": " + e.toString());
+       }
+     }
+}
+
+String ClassName() :
+{
+  //StringBuffer buf = new StringBuffer();
+  String id = null;
+}
+{
+   (id=name()) { return id; }
+/*
+{ buf.append(id); }
+   ("." id=name() { buf.append("."); buf.append(id); } ) *) {
+     return buf.toString();
+   }
+*/
+}
+
+void RuleWithHomomorphisms() :
+{
+}
+{
+    AutomatonRule() (Weight())? (HomomorphismRule())+
+}
+
+void AutomatonRule() :
+{
+    String label = null;
+    List<String> childStates = null;
+    String parentState = null;
+}
+{
+    parentState=State() "->" label=name() ("(" childStates=StateList() ")")? {
+        if( childStates == null ) childStates = new ArrayList<String>();
+        lastSeenRule = automaton.addRule(label.intern(), childStates, parentState);
+        lastSeenTerminal = label;
+    }
+
+}
+
+List<String> StateList() :
+{
+  List<String> ret = new ArrayList<String>();
+  String x;
+}
+{
+   (x = State() { ret.add(x); } ("," x = State() { ret.add(x); })*  ) { return ret; }
+}
+
+String State() :
+{
+  String state;
+  String fin_mark = null;
+}
+{
+  state = name() (fin_mark = <FIN_MARK>.image)* {
+    if( fin_mark != null ) {
+      automaton.addFinalState(state.intern());
+    }
+
+    return state.intern();
+  }
+}
+
+void Weight() :
+{
+    String num = null;
+}
+{
+    "[" num=<NUMBER>.image "]" {
+        lastSeenRule.setWeight(Double.parseDouble(num));
+    }
+}
+
+void HomomorphismRule() :
+{
+    String interpName = null;
+    Term term = null;
+}
+{
+    "[" interpName=name() "]" term=Term() {
+        Tree<StringOrVariable> rhs = term.toTreeWithVariables();
+        Homomorphism hom = homomorphisms.get(interpName);
+
+        if( hom == null ) {
+            throw new ParseException("Homomorphism declaration for unknown interpretation '" + interpName + "'");
+        } else if( hom.get(lastSeenTerminal) != null ) {
+            if( ! hom.get(lastSeenTerminal).equals(rhs) ) {
+                throw new ParseException("Redefined value of interpretation '" + interpName + "' for " + lastSeenTerminal + " as " + term + " (was: " + hom.get(lastSeenTerminal) + ")");
+            }
+       } else {
+          hom.add(lastSeenTerminal, rhs);
+       }
+    }
+}
+
+
+
+Term Term() :
+{
+	String label;
+        Token token;
+	List<Term> subterms = new ArrayList<Term>();
+	Term subterm;
+}
+{
+	label = name() "("
+               (subterm = Term() { subterms.add(subterm); })
+               ("," subterm = Term() { subterms.add(subterm); })*
+        	 ")" {
+		return new Compound(label, subterms);
+	}
+
+  | label = name() {
+	  return new Constant(label);
+  }
+
+  | token = <VARIABLE> {
+  	  return new Variable(token.image.intern());
+  }
+}
+
+void FeatureDeclaration() :
+{
+    String id;
+    String classname;
+    List<String> arguments = new ArrayList<String>();
+}
+{
+    <FEATURE> id=name() ":" classname=ClassName() ("(" arguments=StateList() ")")? {
+       try {
+        Constructor<FeatureFunction> con = findFeatureConstructor(classname, arguments.size());
+
+        String[] args = new String[arguments.size()];
+        arguments.toArray(args);
+
+        FeatureFunction feature = con.newInstance(args);
+        features.put(id, feature);
+       } catch(Exception e) {
+        throw new ParseException("Could not instantiate FeatureFunction class " + classname + " for feature " + id + ": " + e.toString());
+       }
+     }
+}
+
+String name() :
+{
+    Token tok;
+}
+{
+    tok = <NAME> { return tok.image.intern(); }
+    | tok = <QUOTED_NAME> { return tok.image.substring(1, tok.image.length()-1); }
+    | tok = <DOUBLE_QUOTED_NAME> { return tok.image.substring(1, tok.image.length()-1); }
+}
