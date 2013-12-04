@@ -1,0 +1,153 @@
+/**
+ * JavaCC file
+ */
+
+
+options {
+  JDK_VERSION = "1.5";
+  STATIC = false;
+  FORCE_LA_CHECK=true;
+}
+PARSER_BEGIN(IsiAmrParser)
+package de.up.ling.irtg.algebra.graph;
+
+import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.*;
+import java.io.*;
+import org.jgrapht.*;
+import org.jgrapht.graph.*;
+import de.up.ling.tree.*;
+import static de.up.ling.irtg.algebra.graph.GraphCombiningOperation.*;
+
+/**
+ * Parser for sets of strings and sets of tuples of strings,
+ * e.g. "{a, b, c}" or "{(a,b), (c,d)}".
+ * @author Alexander Koller
+ */
+public class IsiAmrParser {
+    private LambdaGraph graph = null;
+
+	public static LambdaGraph parse(Reader reader) throws ParseException {
+		IsiAmrParser parser = new IsiAmrParser(new ByteArrayInputStream(new byte[]{}));
+
+                parser.ReInit(reader);
+
+                parser.graph = new LambdaGraph();
+
+                parser.graph();
+		return parser.graph;
+	}
+
+        public static GraphCombiningOperation parseOperation(Reader reader) throws ParseException {
+		IsiAmrParser parser = new IsiAmrParser(new ByteArrayInputStream(new byte[]{}));
+
+                parser.ReInit(reader);
+
+                parser.graph = new LambdaGraph();
+
+                Tree<OpNode> ops = parser.operation();
+		return new GraphCombiningOperation(ops);
+	}
+
+}
+PARSER_END(IsiAmrParser)
+
+SKIP : { " " | "\t" | "\n" | "\r" }
+
+TOKEN :
+{
+    <NAME: ((["a"-"z", "A"-"Z", "-", "_", "0"-"9", "."])+ )> |
+    <EDGE: [":"] (~[" ", "\t", "\n"])*> |
+    <VAR:  ["?"] ((["0"-"9"])+)> |
+    <APPLY: "+" ([" ", "\t", "\r", "\n"])* "apply"> |
+    <DOUBLE_QUOTED_TOKEN: "\"" (~["\""])* "\"">
+}
+
+Tree<OpNode> operation() :
+{
+    Tree<OpNode> graphOp;
+    Tree<OpNode> ret;
+}{
+    graph() { graphOp = Tree.create(opGraph(graph)); }
+    ret = applyList(graphOp) { return ret; }
+}
+
+Tree<OpNode> applyList(Tree<OpNode> term) :
+{
+    int varnum;
+    String t;
+    List<String> args = new ArrayList<String>();
+}{
+    ("+" varnum = var()  ("(" (t = token() { args.add(t); }  ("," t = token() { args.add(t); })*)? ")")?
+      {
+        term = Tree.create(opCombine(args), new Tree[] { term, Tree.create(opVar(varnum)) });
+        args = new ArrayList<String>();
+      }
+    )* { return term; }
+}
+
+void graph() :
+{
+    GraphNode g;
+    String name;
+    List<String> vars = new ArrayList<String>();
+}{
+    ("\\" name=token() { vars.add(name); }
+          ("," name=token() {vars.add(name);})*    )?
+    g = node() {
+      for( String v : vars ) {
+        graph.addVariable(graph.getNode(v));
+      }
+    }
+}
+
+
+GraphNode node() :
+{
+  GraphNode u;
+  String nodename;
+  String nodelabel = null;
+  String edgelabel;
+  GraphNode edgeTarget;  
+}
+{
+  "(" (nodename=token() ("/" nodelabel=token())?  {
+         u = graph.addNode(nodename, nodelabel);
+       })
+      (edgelabel=edge()  edgeTarget=node() {
+         graph.addEdge(u, edgeTarget, edgelabel);
+       })*
+  ")" { return u; }
+  | nodename=token() { 
+       if( graph.containsNode(nodename) ) {
+        return graph.getNode(nodename);
+       } else {
+        return graph.addAnonymousNode(nodename);
+       }
+   }
+}
+
+String token() :
+{
+    Token tok;
+}
+{
+    tok = <NAME> { return tok.image; }
+    | tok = <DOUBLE_QUOTED_TOKEN> { return tok.image.substring(1, tok.image.length()-1); }
+}
+
+String edge() :
+{
+    Token tok;
+}{
+    tok = <EDGE> { return tok.image.substring(1); }
+}
+
+int var() :
+{
+    Token tok;
+}{
+    tok = <VAR> { return Integer.parseInt(tok.image.substring(1)) - 1; }
+}
