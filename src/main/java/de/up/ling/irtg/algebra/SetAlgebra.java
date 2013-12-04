@@ -6,15 +6,17 @@ package de.up.ling.irtg.algebra;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.saar.basic.StringTools;
 import de.up.ling.irtg.automata.TreeAutomaton;
+import java.io.Reader;
 import java.io.StringReader;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 
 /**
@@ -42,6 +44,7 @@ import java.util.Set;
  *
  * @author koller
  */
+// (Nikos: subset_i is used for underspecification)
 public class SetAlgebra extends EvaluatingAlgebra<Set<List<String>>> {
     private static final String PROJECT = "project_";
     private static final String INTERSECT = "intersect_";
@@ -71,8 +74,41 @@ public class SetAlgebra extends EvaluatingAlgebra<Set<List<String>>> {
         return true;
     }
 
+    
+    /**
+     * Writes the interpretations of the atomic concepts to the given
+     * Writer. This method should encode into a Json string, but is not
+     * yet implemented.
+     * 
+     * @see #readOptions(java.io.Reader) 
+     * @param optionWriter
+     * @throws Exception 
+     */
     @Override
-    public void setOptions(String optionString) throws Exception {
+    public void writeOptions(Writer optionWriter) throws Exception {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+    
+    
+    
+
+    /**
+     * Reads the options from a Json string representation.
+     * The options for the SetAlgebra consist in a specification of the
+     * universe and the interpretations of the atomic concepts.
+     * For instance, the following string says that "sleep" is a binary
+     * relation with the single element (e,r1), whereas "rabbit" is a
+     * unary relation containing the elements r1 and r2.<p>
+     * 
+     * {"sleep": [["e", "r1"]], "rabbit": [["r1"], ["r2"]], "white": [["r1"], ["b"]], "in": [["r1","h"], ["f","h2"]], "hat": [["h"], ["h2"]] }
+     * 
+     * 
+     * @param optionReader
+     * @throws Exception 
+     */
+    @Override
+    public void readOptions(Reader optionReader) throws Exception {
+        String optionString = StringTools.slurp(optionReader);
         Map<String, Set<List<String>>> atomicInterpretations = new HashMap<String, Set<List<String>>>();
 
         if (!optionString.trim().equals("")) {

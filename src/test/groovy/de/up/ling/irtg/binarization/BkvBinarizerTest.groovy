@@ -139,6 +139,12 @@ q_0-2 -> *(q1_q, q2_q) [1.0]     """)
         return irtg.getInterpretation(interp).getAlgebra().getSignature();
     }
     
+    private void assertBinaryGrammar(InterpretedTreeAutomaton irtg) {
+        irtg.getAutomaton().getRuleSet().each {
+            assert it.getArity() <= 2 : ("non-binary rule " + it.toString(irtg.getAutomaton()))
+        }
+    }
+    
     // NB This test is a bit nondeterministic. Depending on how the hashing
     // happens, different binarization terms can be selected for "right".
     // Some of these are harder to synchronize with the homomorphism than others.
@@ -160,32 +166,54 @@ q_0-2 -> *(q1_q, q2_q) [1.0]     """)
         BkvBinarizer bin = new BkvBinarizer(seeds)
         
         InterpretedTreeAutomaton binarized = bin.binarize(irtg, newAlgebras);
+        assertBinaryGrammar(binarized)
         
-//        System.err.println(binarized)
+        List bcd =  ["b", "c", "d"] //p(binarized, "left", "b c d")
+        List dabc = ["d", "a", "b", "c"]  //p(binarized, "right", "d a b c")
         
-        assertAlmostEquals(2.0, binarized.getAutomaton().getWeight(pt("r1_br1(r1_br0(r2,r3),r4)")))
+        assertDecoding(binarized, ["left": bcd, "right": dabc], "left", 2.0)        
+        assertDecoding(binarized, ["left": bcd, "right": dabc], "right", 2.0)
+    }
+    
+    private Object p(InterpretedTreeAutomaton irtg, String interpretation, String value) {
+        return irtg.getInterpretation(interpretation).getAlgebra().parseString(value);
+    }
+    
+    private void assertDecoding(InterpretedTreeAutomaton irtg, Map values, String inputInterp, double weight) {
+        Map inp = new HashMap()
+        inp.put(inputInterp, values.get(inputInterp))
         
-        // check decoding from left to right
-        TreeAutomaton chart = binarized.parse(["left": "b c d"])
+        TreeAutomaton chart = irtg.parseInputObjects(inp)
+        
+//        System.err.println(values.toString() + " / " + inputInterp + ":\n" + chart.toString())
         
         assert ! chart.language().isEmpty()
         
+        assertAlmostEquals(weight, chart.getWeight(chart.viterbi()))
+        
         chart.language().each { 
-            Map vals = binarized.interpret(it)
-            assertEquals(["b","c","d"], vals.get("left"))
-            assertEquals(["d", "a", "b", "c"], vals.get("right"))
+            Map vals = irtg.interpret(it)
+            assertEquals(values, vals)
         }
+
+    }
+    
+    @Test
+    public void testBinarizeConstant() {
+        InterpretedTreeAutomaton irtg = IrtgParser.parse(new StringReader(BIN_CONSTANT));
         
-        // check decoding from right to left
-        chart = binarized.parse(["right": "d a b c"])
+        Algebra leftAlgebra = irtg.getInterpretation("left").getAlgebra()
         
-        assert ! chart.language().isEmpty()
+        Algebra leftOutAlgebra = new StringAlgebra()
         
-        chart.language().each { 
-            Map vals = binarized.interpret(it)
-            assertEquals(["b","c","d"], vals.get("left"))
-            assertEquals(["d", "a", "b", "c"], vals.get("right"))
-        }  
+        Map newAlgebras = ["left": leftOutAlgebra]
+        Map seeds = ["left": new StringAlgebraSeed(leftAlgebra, leftOutAlgebra)];
+        
+        BkvBinarizer bin = new BkvBinarizer(seeds)
+        
+        InterpretedTreeAutomaton binarized = bin.binarize(irtg, newAlgebras);
+        
+        assertEquals(new HashSet([pt("r1_br0")]), binarized.getAutomaton().language())
     }
     
     @Test
@@ -200,6 +228,31 @@ q_0-2 -> *(q1_q, q2_q) [1.0]     """)
         BkvBinarizer bin = new BkvBinarizer(["tree": tis, "string":sis])
         
         InterpretedTreeAutomaton b = bin.binarize(irtg, ["string": sa, "tree":ta])
+    }
+    
+    @Test
+    public void testBinarizeTree() {
+        InterpretedTreeAutomaton irtg = IrtgParser.parse(new StringReader(SYNC_IRTG));
+        
+        Algebra leftAlgebra = irtg.getInterpretation("left").getAlgebra()
+        Algebra rightAlgebra = irtg.getInterpretation("right").getAlgebra()
+        
+        Algebra leftOutAlgebra = new StringAlgebra()
+        Algebra rightOutAlgebra = new BinarizingTreeAlgebra()
+        
+        Map newAlgebras = ["left": leftOutAlgebra, "right": rightOutAlgebra]
+        Map seeds = ["left": new StringAlgebraSeed(leftAlgebra, leftOutAlgebra), "right": new BinarizingAlgebraSeed(rightAlgebra,rightOutAlgebra)];
+        
+        BkvBinarizer bin = new BkvBinarizer(seeds)
+        
+        InterpretedTreeAutomaton binarized = bin.binarize(irtg, newAlgebras);
+        assertBinaryGrammar(binarized)
+        
+        List leftObj = ["a", "b", "c"] 
+        Object rightObj = pt("f(d, a, g(c), b)")
+        
+        assertDecoding(binarized, ["left": leftObj, "right": rightObj], "left", 2.0)        
+        assertDecoding(binarized, ["left": leftObj, "right": rightObj], "right", 2.0)
     }
     
     // test grammar from ACL-13 paper
@@ -224,6 +277,34 @@ D -> r4
 [right] d
    """;
 
+    
+   private static final String BIN_CONSTANT = """
+interpretation left: de.up.ling.irtg.algebra.WideStringAlgebra
+
+A! -> r1 [2]
+[left]  'a'
+""";
+    
+    private static final String SYNC_IRTG = """
+interpretation left: de.up.ling.irtg.algebra.WideStringAlgebra
+interpretation right: de.up.ling.irtg.algebra.TreeAlgebra
+
+S! -> r1(A,B,C) [2]
+[left] conc3(?1, ?2, ?3)
+[right] f(d, ?1, g(?3), ?2)
+
+A -> r2
+[left] a
+[right] a
+
+B -> r3
+[left] b
+[right] b
+
+C -> r4
+[left] c
+[right] c
+    """;
     
     private IntSet is(List ints) {
         IntSet ret = new IntOpenHashSet()

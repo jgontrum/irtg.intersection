@@ -9,6 +9,7 @@ import com.google.common.collect.Iterators;
 import de.up.ling.irtg.automata.ConcreteTreeAutomaton;
 import de.up.ling.irtg.automata.Rule;
 import de.up.ling.irtg.automata.TreeAutomaton;
+import de.up.ling.irtg.hom.HomomorphismSymbol;
 import de.up.ling.irtg.signature.Signature;
 import de.up.ling.tree.Tree;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -69,11 +70,12 @@ public abstract class RegularSeed {
     }
     
     private TreeAutomaton binarizeCached(String label) {
-        TreeAutomaton ret = binarizationCache.get(label);
+        String key = label;
+        TreeAutomaton ret = binarizationCache.get(key);
         
         if( ret == null ) {
             ret = binarize(label);
-            binarizationCache.put(label, ret);
+            binarizationCache.put(key, ret);
         }
         
         return ret;
@@ -91,12 +93,16 @@ public abstract class RegularSeed {
 
         // compute binarization automaton for the current node and compute map
         // that maps q to i iff q -> ?i is a rule
+        
+//        System.err.println("\nbinarize " + term + ", ar=" + arity);
         TreeAutomaton<?> autoHere = binarizeCached(term.getLabel());
-
-        Int2IntMap variableStates = findVariableStates(autoHere, arity);
+//        System.err.println(autoHere);
+        
+        
+        Int2IntMap variableStates = findVariableStates(autoHere, term.getLabel(), arity);
 
         // copy rules of this automaton into ret, renaming states
-        for (Rule rule : autoHere.getRuleSet()) {
+        for (Rule rule : autoHere.getRuleIterable()) {
             // skip rules of the form q -> ?i
             if (!variableStates.containsKey(rule.getParent())) {
                 String newParent = nodeName + "_" + autoHere.getStateForId(rule.getParent()).toString();
@@ -123,6 +129,15 @@ public abstract class RegularSeed {
                     assert finalStateHere == -1 || finalStateHere == newParentId; // ensure at most one final state
                     finalStateHere = newParentId;
                 }
+            } else {
+                // for rules of the form q -> ?i, we don't need to copy them; but if
+                // q was a final state, the final state of the automaton that we substituted into
+                // ?i is now a final state of the result automaton
+                if( autoHere.getFinalStates().contains(rule.getParent())) {
+                    int newParentId = finalStatesOfChildren[HomomorphismSymbol.getVariableIndex(rule.getLabel(autoHere))];
+                    assert finalStateHere == -1 || finalStateHere == newParentId; // ensure at most one final state
+                    finalStateHere = newParentId;
+                }
             }
         }
 
@@ -130,7 +145,7 @@ public abstract class RegularSeed {
         return finalStateHere;
     }
 
-    private Int2IntMap findVariableStates(TreeAutomaton automaton, int arity) {
+    private Int2IntMap findVariableStates(TreeAutomaton automaton, String label, int arity) {
         Int2IntMap ret = new Int2IntOpenHashMap();
         int[] emptyChildren = new int[0];
         Signature sig = automaton.getSignature();
@@ -139,7 +154,12 @@ public abstract class RegularSeed {
             String varsym = "?" + i;
             int varid = sig.getIdForSymbol(varsym);
             Set<Rule> rules = automaton.getRulesBottomUp(varid, emptyChildren);
-            assert rules.size() == 1 : "found " + rules.size() + " rules for " + varsym; // by assumption, see above
+            
+            assert rules.size() <= 1;
+            
+            if( rules.isEmpty() ) {
+                throw new RuntimeException("Found no state in binarization automaton for variable " + varsym + " when binarizing symbol " + label + "/" + arity + ". Perhaps you are using " + label + " with two different arities?");
+            }
 
             ret.put(rules.iterator().next().getParent(), i - 1);
         }
@@ -159,6 +179,10 @@ public abstract class RegularSeed {
                 return f.getClass();
             }
         });
+    }
+    
+    public void printStats() {
+        System.err.println(binarizationCache.keySet());
     }
 }
  
