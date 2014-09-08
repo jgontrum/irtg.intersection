@@ -9,15 +9,11 @@ package de.up.ling.irtg.automata.astar;
 /**
  *
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
+ * @param <State>
  * @param <InsideSummary>
  * @param <OutsideSummary>
  */
-public interface Summarizer<State, InsideSummary, OutsideSummary> {
-        
-//    double evaluate(State span, int state, int lengthOfInput);
-    
-    OutsideSummary summarizeOutside(State span);
-    
-    InsideSummary summarizeInside(State span);
-    
+public interface Summarizer<State, InsideSummary, OutsideSummary> {    
+    OutsideSummary summarizeOutside(State span);    
+    InsideSummary summarizeInside(State span);    
 }

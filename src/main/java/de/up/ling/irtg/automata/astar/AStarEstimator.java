@@ -12,7 +12,7 @@ import de.up.ling.irtg.util.MutableDouble;
 
 /**
  *
- * @author koller
+ * @author gontrum
  */
 public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     private Estimator<State, InsideSummary, OutsideSummary> estimator;
