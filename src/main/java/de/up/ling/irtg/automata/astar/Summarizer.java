@@ -6,20 +6,18 @@
 
 package de.up.ling.irtg.automata.astar;
 
-import de.up.ling.irtg.algebra.StringAlgebra;
-
 /**
  *
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  * @param <InsideSummary>
  * @param <OutsideSummary>
  */
-public interface Summarizer<InsideSummary, OutsideSummary> {
+public interface Summarizer<State, InsideSummary, OutsideSummary> {
         
-    double evaluate(StringAlgebra.Span span, int state, int lengthOfInput);
+    double evaluate(State span, int state, int lengthOfInput);
     
-    OutsideSummary summarizeOutside(StringAlgebra.Span span, int length);
+    OutsideSummary summarizeOutside(State span, int length);
     
-    InsideSummary summarizeInside(StringAlgebra.Span span);
+    InsideSummary summarizeInside(State span);
     
 }

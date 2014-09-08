@@ -19,7 +19,7 @@ import java.io.IOException;
  *
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXSummarizer implements Summarizer<SXInside, SXOutside>{
+public class SXSummarizer implements Summarizer<StringAlgebra.Span, SXInside, SXOutside>{
     private final SXEstimator estimator;
     
     public SXSummarizer(SXEstimator estimator) {

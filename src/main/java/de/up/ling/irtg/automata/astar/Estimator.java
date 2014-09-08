@@ -18,9 +18,9 @@ import java.util.function.Consumer;
  */
 public interface Estimator<State, InsideSummary, OutsideSummary> {
  
-    double estimateOutside(int state, OutsideSummary outsideSummary);
+//    double estimateOutside(int state, OutsideSummary outsideSummary);
     
-    double estimateInside(int state, InsideSummary insideSummary);
+//    double estimateInside(int state, InsideSummary insideSummary);
     
     
     void forEachRuleOutside(OutsideSummary outsideSummary, int symbol, int arity, int position, Consumer<List<Object>> todo);
