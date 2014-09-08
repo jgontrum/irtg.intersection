@@ -8,13 +8,11 @@ package de.up.ling.irtg.automata.astar;
 
 import de.up.ling.irtg.automata.Rule;
 import de.up.ling.irtg.automata.TreeAutomaton;
-import de.up.ling.irtg.util.MutableDouble;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -117,6 +115,11 @@ public class SXEstimator<State> implements Estimator<State, SXInside, SXOutside>
     @Override
     public boolean isOutsideSummaryComplete(SXOutside outsideSummary) {
         return outsideSummary.getWordsLeft() == 0 && outsideSummary.getWordsRight() == 0;
+    }
+
+    @Override
+    public boolean isInsideSummaryTerminal(SXInside insideSummary) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
    
