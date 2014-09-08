@@ -9,10 +9,10 @@ package de.up.ling.irtg.automata.astar;
 import de.up.ling.irtg.InterpretedTreeAutomaton;
 import de.up.ling.irtg.algebra.ParserException;
 import de.up.ling.irtg.algebra.StringAlgebra;
-import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.irtg.codec.IrtgInputCodec;
 import de.up.ling.irtg.codec.ParseException;
 import java.io.IOException;
+import java.util.List;
 
 
 /**
@@ -20,24 +20,26 @@ import java.io.IOException;
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
 public class SXSummarizer implements Summarizer<StringAlgebra.Span, SXInside, SXOutside>{
-    private final SXEstimator estimator;
+//    private final SXEstimator estimator;
+    private final int length;
     
-    public SXSummarizer(SXEstimator estimator) {
-        this.estimator = estimator;
+    public SXSummarizer(List<String> words) {
+        length = words.size();
     }
+    
+    
+//    @Override
+//    public double evaluate(StringAlgebra.Span span, int state, int lengthOfInput) {
+//        return evaluate(state, summarizeOutside(span, lengthOfInput));
+//    }
+//    
+//    public double evaluate(int state, SXOutside os) {
+//        System.err.println("SXOutside: " + os);
+//        return estimator.estimateOutside(state, os);
+//    }
     
     @Override
-    public double evaluate(StringAlgebra.Span span, int state, int lengthOfInput) {
-        return evaluate(state, summarizeOutside(span, lengthOfInput));
-    }
-    
-    public double evaluate(int state, SXOutside os) {
-        System.err.println("SXOutside: " + os);
-        return estimator.estimateOutside(state, os);
-    }
-    
-    @Override
-    public SXOutside summarizeOutside(StringAlgebra.Span span, int length) {
+    public SXOutside summarizeOutside(StringAlgebra.Span span) {
         // summarizeOutside(3-5) = 3,2
         return new SXOutside(span.start, length - span.end);
     }

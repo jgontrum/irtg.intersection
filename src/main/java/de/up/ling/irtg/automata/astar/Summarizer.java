@@ -14,9 +14,9 @@ package de.up.ling.irtg.automata.astar;
  */
 public interface Summarizer<State, InsideSummary, OutsideSummary> {
         
-    double evaluate(State span, int state, int lengthOfInput);
+//    double evaluate(State span, int state, int lengthOfInput);
     
-    OutsideSummary summarizeOutside(State span, int length);
+    OutsideSummary summarizeOutside(State span);
     
     InsideSummary summarizeInside(State span);
     
