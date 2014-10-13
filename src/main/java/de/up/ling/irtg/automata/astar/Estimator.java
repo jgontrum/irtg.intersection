@@ -6,8 +6,11 @@
 
 package de.up.ling.irtg.automata.astar;
 
-import java.util.List;
-import java.util.function.Consumer;
+import de.up.ling.irtg.automata.Rule;
+import de.up.ling.irtg.automata.TreeAutomaton;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import javafx.util.Pair;
 
 /**
  *
@@ -17,9 +20,17 @@ import java.util.function.Consumer;
  * @param <InsideSummary>
  */
 public interface Estimator<State, InsideSummary, OutsideSummary> {
-    void forEachRuleOutside(OutsideSummary outsideSummary, int symbol, int arity, int position, Consumer<List<Object>> todo);
-    void forEachRuleInside(InsideSummary insideSummary, Consumer<List<InsideSummary>> todo);    
+    void forEachRuleOutside(OutsideSummary outsideSummary, int symbol, int arity, int position, BiConsumer<OutsideSummary, Pair<InsideSummary, Integer>> todo);
+    void forEachRuleInside(InsideSummary insideSummary, BiConsumer<InsideSummary, InsideSummary>  todo);    
     
     boolean isOutsideSummaryComplete(OutsideSummary outsideSummary);
     boolean isInsideSummaryTerminal(InsideSummary insideSummary);
+    
+    boolean isTerminal(int state);
+    Set<Rule> getRulesForRHSState(int state);
+    TreeAutomaton<State> getGrammar();
+    
+    
+    InsideSummary getSummary(int span);
+
 }
