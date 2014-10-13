@@ -48,6 +48,11 @@ public class SXInside{
         }
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "SXInside{" + "span=" + span + '}';
+    }
     
     
     
