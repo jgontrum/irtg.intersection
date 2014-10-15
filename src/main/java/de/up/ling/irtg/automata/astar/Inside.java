@@ -3,17 +3,12 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package de.up.ling.irtg.automata.astar;
 
 /**
  *
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
- * @param <State>
- * @param <InsideSummary>
- * @param <OutsideSummary>
  */
-public interface Summarizer<State, InsideSummary extends Inside, OutsideSummary extends Outside> {    
-    OutsideSummary summarizeOutside(State span);    
-    InsideSummary summarizeInside(State span);    
+public interface Inside {
+    long asLongEncoding(int state);
 }

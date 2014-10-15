@@ -15,10 +15,10 @@ import javafx.util.Pair;
  * @param <OutsideSummary>
  * @param <InsideSummary>
  */
-public interface AlgebraStructureSummary<InsideSummary, OutsideSummary> {
+public interface AlgebraStructureSummary<InsideSummary extends Inside, OutsideSummary extends Outside> {
     void forEachRuleOutside(OutsideSummary outsideSummary, int symbol, int arity, int position, BiConsumer<OutsideSummary, Pair<InsideSummary, Integer>> todo);
     void forEachRuleInside(InsideSummary insideSummary, BiConsumer<InsideSummary, InsideSummary>  todo);    
-    
+        
     boolean isOutsideSummaryComplete(OutsideSummary outsideSummary);
     boolean isInsideSummaryTerminal(InsideSummary insideSummary);
 
