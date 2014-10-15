@@ -14,8 +14,14 @@ import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.irtg.codec.IrtgInputCodec;
 import de.up.ling.irtg.codec.ParseException;
 import de.up.ling.irtg.util.MutableDouble;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import javafx.util.Pair;
 
 /**
@@ -26,14 +32,76 @@ import javafx.util.Pair;
  * @param <OutsideSummary>
  */
 public class AStarEstimator<State, InsideSummary, OutsideSummary> {
-    private Estimator<State, InsideSummary, OutsideSummary> estimator;
-    private TreeAutomaton<? extends Object> grammar;
+    private final Estimator<InsideSummary, OutsideSummary> estimator;
+    private final TreeAutomaton<State> grammar;
+    private Int2ObjectMap<Set<Rule>> rhsSymbolToRules;  //< maps a symbol to a set of rules, where it occurs on the rhs
+    private IntSet terminalSymbols;                     //< set of all symbols, that are the parent of a 0-ary rule.
 
-    public AStarEstimator(Estimator<State, InsideSummary, OutsideSummary> estimator) {
+
+    public AStarEstimator(Estimator<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar) {
         this.estimator = estimator;
-        this.grammar = estimator.getGrammar();
+        this.grammar = grammar;
+        sortRulesByRHS();
+        fetchTerminalSymbols();
     }
     
+    // Datastructure functions
+    //   Build datastructures 
+    private void sortRulesByRHS() {
+        // Calculation of the outside estimate requires access to rules that have 
+        // a certain state on their rhs.
+        rhsSymbolToRules = new Int2ObjectOpenHashMap<>();
+        rhsSymbolToRules.defaultReturnValue(new HashSet<>());
+        for (Rule r : grammar.getRuleIterable()) {
+            for (int symbol : r.getChildren()) {
+                if (!rhsSymbolToRules.containsKey(symbol)) {
+                    Set<Rule> insert = new HashSet<>();
+                    insert.add(r);
+                    rhsSymbolToRules.put(symbol, insert);
+                } else {
+                    rhsSymbolToRules.get(symbol).add(r);
+                }
+            }
+        }
+    }
+    
+    private void fetchTerminalSymbols() {
+        // collect all terminal symbols.
+        terminalSymbols = new IntOpenHashSet();
+        grammar.getRuleIterable().forEach((Rule r) -> {
+            if (r.getArity() == 0) {
+                terminalSymbols.add(r.getParent());
+            }
+        });
+    }
+    
+    //   Access datastructures
+
+    private boolean isTerminal(int state) {
+        return terminalSymbols.contains(state);
+    }
+    
+    // Return all rules, that have a given symbol on their rhs.
+    private Set<Rule> getRulesForRHSSymbol(int symbol) {
+        if (rhsSymbolToRules.containsKey(symbol)) {
+            return rhsSymbolToRules.get(symbol);
+        } else {
+            return new HashSet<>();
+        }
+    }
+    
+    private void printRhsSymbolToRules() {
+        rhsSymbolToRules.keySet().forEach(key -> {
+            rhsSymbolToRules.get(key).forEach(rule -> {
+                System.out.println(key + " |->  '" + rule.toString(grammar) + "'");
+            });
+        });
+
+    }
+
+    
+    // estimate Outside & Inside
+
     public double estimateOutside(int state, OutsideSummary outsideSummary) {
         System.err.println("\nestimateOutside: New run for state '" + grammar.getStateForId(state) + "' and outsideSummary "+ outsideSummary);
         // base case for the recursion: summary is complete 
@@ -44,7 +112,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         }
                 
         MutableDouble score = new MutableDouble(Double.NEGATIVE_INFINITY);
-        estimator.getRulesForRHSState(state).stream().forEach((r) -> {
+        getRulesForRHSSymbol(state).stream().forEach((r) -> {
             System.err.println("estimateOutside("+grammar.getStateForId(state) + "," + outsideSummary +"): Current rule for "+ outsideSummary + " with state " + grammar.getStateForId(state) + " : "  + r.toString(grammar));
             int position = 0;
             while (state != r.getChildren()[position]) {++position;} // TODO multiple positions?
@@ -85,7 +153,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         //      if state \in terminal -> 0
         //      else -> neg infinity
         if (estimator.isInsideSummaryTerminal(insideSummary)) {
-            if (estimator.isTerminal(state)) {
+            if (isTerminal(state)) {
                 System.err.println("estimateInside("+grammar.getStateForId(state) + "," + insideSummary +"): IS is terminal and state is terminal. Returning 0.");
                 return 0;
             } else {
@@ -226,10 +294,10 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         System.err.println(Arrays.asList(input.split(" ")));
         
         
-        SXEstimator estimator = new SXEstimator(irtg.getAutomaton());
+        SXEstimator estimator = new SXEstimator();
         SXSummarizer summarizer = new SXSummarizer(Arrays.asList(input.split(" ")));
-        estimator.setSummarizer(summarizer);
-        AStarEstimator<String, SXInside, SXOutside> astar = new AStarEstimator(estimator);
+
+        AStarEstimator<String, SXInside, SXOutside> astar = new AStarEstimator(estimator, irtg.getAutomaton());
         
 
         int state = irtg.getAutomaton().getIdForState("C");
