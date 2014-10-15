@@ -32,13 +32,13 @@ import javafx.util.Pair;
  * @param <OutsideSummary>
  */
 public class AStarEstimator<State, InsideSummary, OutsideSummary> {
-    private final Estimator<InsideSummary, OutsideSummary> estimator;
+    private final AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator;
     private final TreeAutomaton<State> grammar;
     private Int2ObjectMap<Set<Rule>> rhsSymbolToRules;  //< maps a symbol to a set of rules, where it occurs on the rhs
     private IntSet terminalSymbols;                     //< set of all symbols, that are the parent of a 0-ary rule.
 
 
-    public AStarEstimator(Estimator<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar) {
+    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar) {
         this.estimator = estimator;
         this.grammar = grammar;
         sortRulesByRHS();
@@ -294,7 +294,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         System.err.println(Arrays.asList(input.split(" ")));
         
         
-        SXEstimator estimator = new SXEstimator();
+        SXAlgebraStructureSummary estimator = new SXAlgebraStructureSummary();
         SXSummarizer summarizer = new SXSummarizer(Arrays.asList(input.split(" ")));
 
         AStarEstimator<String, SXInside, SXOutside> astar = new AStarEstimator(estimator, irtg.getAutomaton());
