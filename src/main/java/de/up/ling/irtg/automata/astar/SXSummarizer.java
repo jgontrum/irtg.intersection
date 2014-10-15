@@ -6,13 +6,7 @@
 
 package de.up.ling.irtg.automata.astar;
 
-import de.up.ling.irtg.InterpretedTreeAutomaton;
-import de.up.ling.irtg.algebra.ParserException;
 import de.up.ling.irtg.algebra.StringAlgebra;
-import de.up.ling.irtg.codec.IrtgInputCodec;
-import de.up.ling.irtg.codec.ParseException;
-import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 

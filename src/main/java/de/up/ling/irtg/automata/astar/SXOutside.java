@@ -10,7 +10,7 @@ package de.up.ling.irtg.automata.astar;
  *
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXOutside {
+public class SXOutside implements Outside {
     private int wordsLeft;
     private int wordsRight;
 
@@ -65,6 +65,11 @@ public class SXOutside {
     @Override
     public String toString() {
         return "SXOutside{" + "wordsLeft=" + wordsLeft + ", wordsRight=" + wordsRight + '}';
+    }
+
+    @Override
+    public long asLongEncoding(int state) {
+        return ((long) state << 32) | (0xFFFFFFFFL & (wordsLeft << 16 | wordsRight));
     }
 
     
