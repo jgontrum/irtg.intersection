@@ -240,22 +240,20 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
                 System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): Current rule: " + r.toString(grammar));
                 if (r.getArity() == 2) {
                     estimator.forEachRuleInside(insideSummary, r.getArity(),
-                            (InsideSummary newInsideSummaryLeft, InsideSummary newInsideSummaryRight) -> {
+                            newInsideSummaries -> {
                                 System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): forEachRuleInside for rule " + r.toString(grammar)
-                                        + "\n  new left  IS: " + newInsideSummaryLeft
-                                        + "\n  new right IS: " + newInsideSummaryRight);
+                                        + "\n  new InsideSummaries: " + Arrays.toString(newInsideSummaries));
 
                                 double currentEstimate = Math.log(r.getWeight());
                                 System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): current estimate P(rule): " + currentEstimate);
-
-                                System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): Starting estimateInside for " + grammar.getStateForId(r.getChildren()[0]) + " and " + newInsideSummaryLeft);
-                                currentEstimate += estimateInside(r.getChildren()[0], newInsideSummaryLeft);
-                                System.err.println("\nestimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): current estimate: " + currentEstimate);
-
-                                System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): Starting estimateInside for " + grammar.getStateForId(r.getChildren()[1]) + " and " + newInsideSummaryRight);
-                                currentEstimate += estimateInside(r.getChildren()[1], newInsideSummaryRight);
-                                System.err.println("\nestimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): current estimate: " + currentEstimate);
-
+                                
+                                for (int i = 0; i < newInsideSummaries.length; i++) {
+                                    System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): Starting estimateInside for " + grammar.getStateForId(r.getChildren()[0]) + " and " + newInsideSummaries[i]);
+                                    currentEstimate += estimateInside(r.getChildren()[i], newInsideSummaries[i]);
+                                    System.err.println("\nestimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): current estimate: " + currentEstimate);
+                                    
+                                }
+            
                                 score.setValue((currentEstimate > score.getValue()) ? currentEstimate : score.getValue()); // maximize over weights 
                             });
                 }
@@ -365,6 +363,9 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
 //            }
 //            System.err.println("");
 //        });
+        
+        
+        
 ////
 //        SXAlgebraStructureSummary.generate(0, 2, new int[3], tup -> {
 //            System.err.println(Arrays.toString(tup));
@@ -386,6 +387,19 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
 
         AStarEstimator<String, SXInside, SXOutside> astar = new AStarEstimator(estimator, irtg.getAutomaton());
         
+//        estimator.forEachRuleInside(new SXInside(4), 2, tup -> {
+//            System.err.println(Arrays.toString(tup));
+//        });
+//        
+//        estimator.forEachRuleOutside(new SXOutside(0,1), 0, 2, 0, (SXOutside os, SXInside[] iss) -> {
+//            System.err.println(os);
+//            for (SXInside is : iss) {
+//                System.err.println(is);
+//            }
+//            System.err.println("");
+//        });
+////        
+       
 
         int state = irtg.getAutomaton().getIdForState("NP");
         
