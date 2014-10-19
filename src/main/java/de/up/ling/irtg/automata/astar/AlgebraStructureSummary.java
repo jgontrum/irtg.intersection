@@ -7,7 +7,7 @@
 package de.up.ling.irtg.automata.astar;
 
 import java.util.function.BiConsumer;
-import javafx.util.Pair;
+import java.util.function.Consumer;
 
 /**
  *
@@ -17,7 +17,7 @@ import javafx.util.Pair;
  */
 public interface AlgebraStructureSummary<InsideSummary extends Inside, OutsideSummary extends Outside> {
     void forEachRuleOutside(OutsideSummary outsideSummary, int symbol, int arity, int position, BiConsumer<OutsideSummary, InsideSummary[]> todo);
-    void forEachRuleInside(InsideSummary insideSummary, int arity, BiConsumer<InsideSummary, InsideSummary>  todo);    
+    void forEachRuleInside(InsideSummary insideSummary, int arity, Consumer<InsideSummary[]>  todo);    
         
     boolean isOutsideSummaryComplete(OutsideSummary outsideSummary);
     boolean isInsideSummaryTerminal(InsideSummary insideSummary);
