@@ -20,6 +20,8 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.longs.Long2DoubleMap;
 import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2DoubleMap;
+import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -33,23 +35,23 @@ import javafx.util.Pair;
  * @param <InsideSummary>
  * @param <OutsideSummary>
  */
-public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary extends Outside> {
+public class AStarEstimator<State, InsideSummary extends Summary, OutsideSummary extends Summary> {
     private final AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator;
     private final TreeAutomaton<State> grammar;
     private Int2ObjectMap<Set<Rule>> rhsSymbolToRules;  //< maps a symbol to a set of rules, where it occurs on the rhs
     private IntSet terminalSymbols;                     //< set of all symbols, that are the parent of a 0-ary rule.
 
     // Caches
-    private final Long2DoubleMap outsideCache; //< maps an outside summary + a state to a cached estimation
-    private final Long2DoubleMap insideCache;  //< maps an inside summary + a state to a cached estimation
+    private final Object2DoubleMap<OutsideSummary> outsideCache; //< maps an outside summary + a state to a cached estimation
+    private final Object2DoubleMap<InsideSummary> insideCache;  //< maps an inside summary + a state to a cached estimation
 
  
     public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar) {
         this.estimator = estimator;
         this.grammar = grammar;
         
-        this.outsideCache = new Long2DoubleOpenHashMap();
-        this.insideCache = new Long2DoubleOpenHashMap();
+        this.outsideCache = new Object2DoubleOpenHashMap<>();
+        this.insideCache = new Object2DoubleOpenHashMap<>();
         
         sortRulesByRHS();
         fetchTerminalSymbols();
@@ -85,13 +87,13 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
         });
     }
     
-    private void saveInInsideCache(long key, double value) {
+    private void saveInInsideCache(InsideSummary key, double value) {
         if (value > getInsideCache(key)) {
             insideCache.put(key, value);
         }
     }
     
-    private void saveInOutsideCache(long key, double value) {
+    private void saveInOutsideCache(OutsideSummary key, double value) {
         if (value > getOutsideCache(key)) {
             outsideCache.put(key, value);
         }
@@ -100,19 +102,19 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
     //   Access datastructures
     
     //     Cache
-    private double getInsideCache(long key) {
+    private double getInsideCache(InsideSummary key) {
         return (checkInsideCache(key))? insideCache.get(key) : Double.NEGATIVE_INFINITY;
     }
     
-    private double getOutsideCache(long key) {
+    private double getOutsideCache(OutsideSummary key) {
         return (checkOutsideCache(key)) ? outsideCache.get(key) : Double.NEGATIVE_INFINITY;
     }
     
-    private boolean checkInsideCache(long key) {
+    private boolean checkInsideCache(InsideSummary key) {
         return insideCache.containsKey(key);
     }
 
-    private boolean checkOutsideCache(long key) {
+    private boolean checkOutsideCache(OutsideSummary key) {
         return outsideCache.containsKey(key);
     }
     
@@ -145,15 +147,14 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
 
     public double estimateOutside(int state, OutsideSummary outsideSummary) {
         System.err.println("\nestimateOutside: New run for state '" + grammar.getStateForId(state) + "' and outsideSummary "+ outsideSummary);
-        long asLong = outsideSummary.asLongEncoding(state);
         
         // check caches first
-        if (checkOutsideCache(asLong)) {
-            System.err.println("estimateOutside: Returning from cache: " + getOutsideCache(asLong));
-            return getOutsideCache(asLong);
+        if (checkOutsideCache(outsideSummary)) {
+            System.err.println("estimateOutside: Returning from cache: " + getOutsideCache(outsideSummary));
+            return getOutsideCache(outsideSummary);
         } else {
             // set marker to identify circles in the automaton
-            saveInOutsideCache(asLong, Double.NEGATIVE_INFINITY);
+            saveInOutsideCache(outsideSummary, Double.NEGATIVE_INFINITY);
             
             // start calculation
             // base case for the recursion: summary is complete 
@@ -173,7 +174,6 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
                 System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): pos: " + position);
                 // Getting Outside Summaries and a pairs of an Inside Summary and an Integer that shows the position of the IS
                 estimator.forEachRuleOutside(outsideSummary, r.getLabel(), r.getArity(), position, (OutsideSummary os, InsideSummary[] insideSummaries) -> {
-                    assert r.getArity() == 2;
 //                    System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): forEachRuleOutside for rule " + r.toString(grammar)
 //                            + "\n  Outside Summary: " + os
 //                            + "\n  Inside Summary: " + iSPositionPair.getKey() + " on position " + iSPositionPair.getValue());
@@ -200,7 +200,7 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
             System.err.println("estimateOutsideestimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): returning=" + score.getValue() + "\n");
             
             // store value in cache
-            saveInOutsideCache(asLong, score.getValue());
+            saveInOutsideCache(outsideSummary, score.getValue());
             
             return score.getValue();
         }
@@ -208,15 +208,14 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
     
     public double estimateInside(int state, InsideSummary insideSummary) {
         System.err.println("\nestimateInside: New run for state=" + grammar.getStateForId(state) + " is="+insideSummary);
-        long asLong = insideSummary.asLongEncoding(state);
         
-        if (checkInsideCache(asLong)) {
+        if (checkInsideCache(insideSummary)) {
             // found in cache
-            System.err.println("nestimateInside: Returning from cache: " + getInsideCache(asLong));
-            return getInsideCache(asLong);
+            System.err.println("nestimateInside: Returning from cache: " + getInsideCache(insideSummary));
+            return getInsideCache(insideSummary);
         } else {
             // set marker to avoid circles
-            saveInInsideCache(asLong, Double.NEGATIVE_INFINITY);
+            saveInInsideCache(insideSummary, Double.NEGATIVE_INFINITY);
             
             
             // if IS == 0: 
@@ -262,7 +261,7 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
 
             System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): returning " + score.getValue());
             
-            saveInInsideCache(asLong, score.getValue());
+            saveInInsideCache(insideSummary, score.getValue());
             
             return score.getValue();
         }
@@ -401,10 +400,11 @@ public class AStarEstimator<State, InsideSummary extends Inside, OutsideSummary 
 ////        
        
 
-        int state = irtg.getAutomaton().getIdForState("NP");
-        
+        int state = irtg.getAutomaton().getIdForState("VP");
+//        int state = irtg.getAutomaton().getIdForState("C");
 
-        SXOutside os = summarizer.summarizeOutside(new StringAlgebra.Span(1, 2));
+
+        SXOutside os = summarizer.summarizeOutside(new StringAlgebra.Span(2, 6));
         SXInside is = summarizer.summarizeInside(new StringAlgebra.Span(0, input.split(" ").length));
 
 //        System.err.println("Calculating InsideSummary for the state '" + irtg.getAutomaton().getStateForId(state) + "' over the span " + is);

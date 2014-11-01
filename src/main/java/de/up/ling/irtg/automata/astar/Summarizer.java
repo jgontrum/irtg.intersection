@@ -7,13 +7,13 @@
 package de.up.ling.irtg.automata.astar;
 
 /**
- *
+ * Creates Summary objects for elements of the decomposition algebra.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  * @param <State>
  * @param <InsideSummary>
  * @param <OutsideSummary>
  */
-public interface Summarizer<State, InsideSummary extends Inside, OutsideSummary extends Outside> {    
-    OutsideSummary summarizeOutside(State span);    
-    InsideSummary summarizeInside(State span);    
+public interface Summarizer<State, InsideSummary extends Summary, OutsideSummary extends Summary> {    
+    OutsideSummary summarizeOutside(State state);    
+    InsideSummary summarizeInside(State state);    
 }

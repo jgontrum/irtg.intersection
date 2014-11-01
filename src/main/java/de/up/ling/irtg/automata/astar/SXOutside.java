@@ -7,10 +7,12 @@
 package de.up.ling.irtg.automata.astar;
 
 /**
- *
+ * OutsideSummary from a span over a string. 
+ * Contains only the number of words to the left of this object
+ * and to the right.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXOutside implements Outside {
+public class SXOutside implements Summary {
     private int wordsLeft;
     private int wordsRight;
 
@@ -67,10 +69,8 @@ public class SXOutside implements Outside {
         return "SXOutside{" + "wordsLeft=" + wordsLeft + ", wordsRight=" + wordsRight + '}';
     }
 
-    @Override
     public long asLongEncoding(int state) {
         return ((long) state << 32) | (0xFFFFFFFFL & (wordsLeft << 16 | wordsRight));
     }
-
     
 }
