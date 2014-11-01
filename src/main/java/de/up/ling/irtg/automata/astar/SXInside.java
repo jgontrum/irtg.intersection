@@ -7,10 +7,11 @@
 package de.up.ling.irtg.automata.astar;
 
 /**
- *
+ * InsideSummary from a span over a string. 
+ * Contains only the amount of words inside the span.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXInside implements Inside{
+public class SXInside implements Summary{
     private int span;
 
     public SXInside(int span) {
@@ -54,11 +55,7 @@ public class SXInside implements Inside{
         return "SXInside{" + "span=" + span + '}';
     }
 
-    @Override
     public long asLongEncoding(int state) {
         return ((long) state << 32) | (0xFFFFFFFFL & (span << 16));
     }
-    
-    
-    
 }

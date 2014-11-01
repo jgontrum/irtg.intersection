@@ -6,9 +6,10 @@
 package de.up.ling.irtg.automata.astar;
 
 /**
- *
+ * Interface to specify methods, that both summary objects must implement.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public interface Inside {
-    long asLongEncoding(int state);
+public interface Summary {
+//    long asLongEncoding(int state);
+
 }

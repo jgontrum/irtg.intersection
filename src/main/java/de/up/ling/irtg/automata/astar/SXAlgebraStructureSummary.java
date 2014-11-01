@@ -6,12 +6,9 @@
 
 package de.up.ling.irtg.automata.astar;
 
-import com.sun.javafx.scene.control.skin.VirtualFlow;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javafx.util.Pair;
@@ -219,6 +216,8 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
         }
 
     }
+    
+    
     
     
     public static void generate(int nextPos, int remainingScore, int[] tuple, boolean completeOnly, Consumer<int[]> fn) {
