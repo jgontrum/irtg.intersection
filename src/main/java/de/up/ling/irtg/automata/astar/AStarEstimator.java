@@ -224,7 +224,12 @@ public class AStarEstimator<State, InsideSummary extends Summary, OutsideSummary
             if (estimator.isInsideSummaryTerminal(insideSummary)) {
                 if (isTerminal(state)) {
                     System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): IS is terminal and state is terminal. Returning 0.");
-                    return 0; // P(rule)
+                    // maximize over rules and return the best one.
+                    double ret = 0;
+                    for (Rule r : grammar.getRulesTopDown(state)) { 
+                        if (r.getWeight() > ret) ret = r.getWeight();
+                    }
+                    return Math.log(ret);
                 }
             }
 
@@ -390,11 +395,9 @@ public class AStarEstimator<State, InsideSummary extends Summary, OutsideSummary
 //            System.err.println(Arrays.toString(tup));
 //        });
 //        
-//        estimator.forEachRuleOutside(new SXOutside(0,1), 0, 2, 0, (SXOutside os, SXInside[] iss) -> {
-//            System.err.println(os);
-//            for (SXInside is : iss) {
-//                System.err.println(is);
-//            }
+//        estimator.forEachRuleOutside(new SXOutside(4,3), 0, 3, 2, (SXOutside os, SXInside[] iss) -> {
+//            System.err.println(os + " -> " + Arrays.toString(iss));
+//
 //            System.err.println("");
 //        });
 ////        
