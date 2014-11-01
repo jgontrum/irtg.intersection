@@ -167,34 +167,37 @@ public class AStarEstimator<State, InsideSummary extends Summary, OutsideSummary
             MutableDouble score = new MutableDouble(Double.NEGATIVE_INFINITY);
             getRulesForRHSSymbol(state).stream().forEach((r) -> {
                 System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Current rule for " + outsideSummary + " with state " + grammar.getStateForId(state) + " : " + r.toString(grammar));
-                int position = 0;
-                while (state != r.getChildren()[position]) {
-                    ++position;
-                } // TODO multiple positions?
-                System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): pos: " + position);
-                // Getting Outside Summaries and a pairs of an Inside Summary and an Integer that shows the position of the IS
-                estimator.forEachRuleOutside(outsideSummary, r.getLabel(), r.getArity(), position, (OutsideSummary os, InsideSummary[] insideSummaries) -> {
-//                    System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): forEachRuleOutside for rule " + r.toString(grammar)
+                
+                // Iterate over all positions in the rhs where the current state matches the state at the position on the rhs
+                for (int position = 0; position < r.getArity(); ++position) {
+                    if (state == r.getChildren()[position]) {
+                        System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): pos: " + position);
+                        // Getting Outside Summaries and a pairs of an Inside Summary and an Integer that shows the position of the IS
+                        estimator.forEachRuleOutside(outsideSummary, r.getLabel(), r.getArity(), position, (OutsideSummary os, InsideSummary[] insideSummaries) -> {
+//                      System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): forEachRuleOutside for rule " + r.toString(grammar)
 //                            + "\n  Outside Summary: " + os
 //                            + "\n  Inside Summary: " + iSPositionPair.getKey() + " on position " + iSPositionPair.getValue());
 
-                    double currentEstimate = Math.log(r.getWeight()); // P(rule) ...
-                    System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): currentEstimate P(Rule) -> " + currentEstimate);
+                            double currentEstimate = Math.log(r.getWeight()); // P(rule) ...
+                            System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): currentEstimate P(Rule) -> " + currentEstimate);
 
-                    for (int i = 0; i < insideSummaries.length; i++) {
-                        if (insideSummaries[i] != null) {
-                            System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Running inside estimation for state " + grammar.getStateForId(r.getChildren()[i]) + " and " + insideSummaries[i] + " on position " + i);
-                            currentEstimate += estimateInside(r.getChildren()[i], insideSummaries[i]);
-                            System.err.println("\nestimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): currentEstimate -> " + currentEstimate);
-                        }
-                        
+                            for (int i = 0; i < insideSummaries.length; i++) {
+                                if (insideSummaries[i] != null) {
+                                    System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Running inside estimation for state " + grammar.getStateForId(r.getChildren()[i]) + " and " + insideSummaries[i] + " on position " + i);
+                                    currentEstimate += estimateInside(r.getChildren()[i], insideSummaries[i]);
+                                    System.err.println("\nestimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): currentEstimate -> " + currentEstimate);
+                                }
+
+                            }
+
+                            System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Running outside estimation for state " + grammar.getStateForId(r.getParent()) + " and " + os);
+                            currentEstimate += estimateOutside(r.getParent(), os); // ... * estimateOutside(A,s) ...
+
+                            score.setValue((currentEstimate > score.getValue()) ? currentEstimate : score.getValue()); // maximize over weights
+                        });
                     }
-                   
-                    System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Running outside estimation for state " + grammar.getStateForId(r.getParent()) + " and " + os);
-                    currentEstimate += estimateOutside(r.getParent(), os); // ... * estimateOutside(A,s) ...
-
-                    score.setValue((currentEstimate > score.getValue()) ? currentEstimate : score.getValue()); // maximize over weights
-                });
+                }
+             
             });
 
             System.err.println("estimateOutsideestimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): returning=" + score.getValue() + "\n");
