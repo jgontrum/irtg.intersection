@@ -96,6 +96,18 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
 
     }
     
+    /**
+     * Fills a given tuple recursively with values. 
+     * The sum of the values may not be larger than the value of 'remainingScore'
+     * and no value may be 0. 
+     * If completeOnly is true, the values sum up to exactly 'remainingScore',
+     * if false, their sum can be smaller. 
+     * @param nextPos The next position in the tuple. Set this to 0 to start the recursion.
+     * @param remainingScore The score, that should be split into the tuple. 
+     * @param tuple An empty tuple, that the values will be written into.
+     * @param completeOnly If true, the values of the tuple sum up to the value of 'remainingScore'.
+     * @param fn 
+     */
     public static void generate(int nextPos, int remainingScore, int[] tuple, boolean completeOnly, Consumer<int[]> fn) {
         if (nextPos < tuple.length) {
             for (int i = 1; i <= remainingScore; ++i) {
