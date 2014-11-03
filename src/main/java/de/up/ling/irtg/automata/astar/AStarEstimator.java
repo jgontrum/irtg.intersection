@@ -99,13 +99,17 @@ public class AStarEstimator<State, InsideSummary extends Summary, OutsideSummary
     }
     
     private void saveInInsideCache(InsideSummary key, double value) {
-        if (value > getInsideCache(key)) {
+        Double oldValue = insideCache.get(key);
+        
+        if( oldValue == null || value > oldValue ) {
             insideCache.put(key, value);
         }
     }
     
     private void saveInOutsideCache(OutsideSummary key, double value) {
-        if (value > getOutsideCache(key)) {
+        Double oldValue = outsideCache.get(key);
+        
+        if( oldValue == null || value > oldValue ) {
             outsideCache.put(key, value);
         }
     }
@@ -223,7 +227,10 @@ public class AStarEstimator<State, InsideSummary extends Summary, OutsideSummary
     public double estimateInside(int state, InsideSummary insideSummary) {
         if (DEBUG) System.err.println("\nestimateInside: New run for state=" + grammar.getStateForId(state) + " is="+insideSummary);
         
-        if (checkInsideCache(insideSummary)) {
+        // TODO - separate caches for different states
+        // TODO - do the same for outside
+        
+        if (checkInsideCache(insideSummary)) {  // TODO - low-level zugriffe auf hashmap
             // found in cache
             if (DEBUG) System.err.println("nestimateInside: Returning from cache: " + getInsideCache(insideSummary));
             return getInsideCache(insideSummary);
@@ -231,6 +238,7 @@ public class AStarEstimator<State, InsideSummary extends Summary, OutsideSummary
             // set marker to avoid circles
             saveInInsideCache(insideSummary, Double.NEGATIVE_INFINITY);
             
+            System.err.println("doing work for: " + insideSummary + ", state " + state);
             
             // if IS == 0: 
             //      if state \in terminal -> 0

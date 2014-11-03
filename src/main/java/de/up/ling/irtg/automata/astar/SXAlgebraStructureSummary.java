@@ -17,6 +17,27 @@ import java.util.function.Consumer;
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
 public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInside, SXOutside> {
+    private final int NUM_CACHED_INSIDE_VALUES = 1000;
+    private SXInside[] cachedInsideValues = null;
+
+    public SXAlgebraStructureSummary() {
+        cachedInsideValues = new SXInside[NUM_CACHED_INSIDE_VALUES];
+        for( int i = 0; i < NUM_CACHED_INSIDE_VALUES; i++ ) {
+            cachedInsideValues[i] = new SXInside(0);
+        }
+    }
+    
+    private SXInside makeInside(int n) {
+        if( n < NUM_CACHED_INSIDE_VALUES ) {
+            return cachedInsideValues[n];
+        } else {
+            return new SXInside(n);
+        }
+    }
+    
+    
+    
+    
 
     @Override
     public void forEachRuleOutside(SXOutside outsideSummary, int symbol, int arity, int position, BiConsumer<SXOutside, SXInside[]> fn) {
@@ -28,7 +49,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
         // an array of size position (that is the number of all inside summaries
         // left to the position of our outside summary
         generate(0, outsideSummary.getWordsLeft(), new int[position], false, tuple -> {
-            itemsLeft.add(tuple);
+            itemsLeft.add(Arrays.copyOf(tuple, tuple.length));
         });
 
         // now the items on the right...
@@ -46,7 +67,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
             
             // Now copy inside summaries from the left part to the return array
             for (int i = 0; i < leftTuple.length; ++i) {
-                rhs[i] = new SXInside(leftTuple[i]);
+                rhs[i] = makeInside(leftTuple[i]);
             }
             
             // Set the index = null, where the current outside summary is.
@@ -66,7 +87,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
 
                 // Copy inside summaries from the right part to the return array
                 for (int j = 0; j < rightTuple.length; ++j) {
-                    rhs[leftTuple.length + 1 + j] = new SXInside(rightTuple[j]);
+                    rhs[leftTuple.length + 1 + j] = makeInside(rightTuple[j]);
                 }
                 
                 // Create outside summary on the lhs of this 'rule'
@@ -77,7 +98,6 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
 
             });
         });
-
     }
 
     @Override
@@ -89,7 +109,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
         generate(0, insideSummary.getSpan(), new int[arity], true, tuple -> {
             SXInside[] ret = new SXInside[arity];
             for (int i = 0; i < tuple.length; i++) {
-                ret[i] = new SXInside(tuple[i]);
+                ret[i] = makeInside(tuple[i]);
             }
             fn.accept(ret);
         });
@@ -112,7 +132,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
         if (nextPos < tuple.length) {
             for (int i = 1; i <= remainingScore; ++i) {
                 tuple[nextPos] = i;
-                generate(nextPos + 1, remainingScore - i, Arrays.copyOf(tuple, tuple.length), completeOnly, fn);
+                generate(nextPos + 1, remainingScore - i, tuple, completeOnly, fn);
             }
         } else {
             if (completeOnly) {
