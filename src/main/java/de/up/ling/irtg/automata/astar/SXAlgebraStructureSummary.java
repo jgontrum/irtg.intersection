@@ -23,7 +23,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
     public SXAlgebraStructureSummary() {
         cachedInsideValues = new SXInside[NUM_CACHED_INSIDE_VALUES];
         for( int i = 0; i < NUM_CACHED_INSIDE_VALUES; i++ ) {
-            cachedInsideValues[i] = new SXInside(0);
+            cachedInsideValues[i] = new SXInside(i);
         }
     }
     
@@ -36,9 +36,6 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
     }
     
     
-    
-    
-
     @Override
     public void forEachRuleOutside(SXOutside outsideSummary, int symbol, int arity, int position, BiConsumer<SXOutside, SXInside[]> fn) {
 
