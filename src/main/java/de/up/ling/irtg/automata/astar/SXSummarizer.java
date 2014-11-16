@@ -14,7 +14,7 @@ import java.util.List;
  * Creates SX-Summary objects from Spans over an input string (StringAlgebra.Span)
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXSummarizer implements Summarizer<StringAlgebra.Span, SXInside, SXOutside>{
+public class SXSummarizer implements Summarizer<StringAlgebra.Span, Integer, SXOutside>{
 //    private final SXEstimator estimator;
     private final int length;
     
@@ -29,9 +29,9 @@ public class SXSummarizer implements Summarizer<StringAlgebra.Span, SXInside, SX
     }
 
     @Override
-    public SXInside summarizeInside(StringAlgebra.Span span) {
+    public Integer summarizeInside(StringAlgebra.Span span) {
         // summarizeInside(3-5) = 2 
-        return new SXInside(span.end - span.start);
+        return span.end - span.start;
     }
     
     
