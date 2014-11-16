@@ -13,7 +13,7 @@ package de.up.ling.irtg.automata.astar;
  * @param <InsideSummary>
  * @param <OutsideSummary>
  */
-public interface Summarizer<State, InsideSummary extends Summary, OutsideSummary extends Summary> {    
+public interface Summarizer<State, InsideSummary, OutsideSummary> {    
     OutsideSummary summarizeOutside(State state);    
     InsideSummary summarizeInside(State state);    
 }
