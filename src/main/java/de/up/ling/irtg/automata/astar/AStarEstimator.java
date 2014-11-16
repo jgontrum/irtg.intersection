@@ -49,7 +49,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     private final AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator;
     private final TreeAutomaton<String> grammar;
     private Int2ObjectMap<Set<Rule>> rhsSymbolToRules;  //< maps a symbol to a set of rules, where it occurs on the rhs
-    private IntSet terminalSymbols;                     //< set of all symbols, that are the parent of a 0-ary rule.
+    private IntSet nullarySymbols;                     //< set of all symbols, that are the parent of a 0-ary rule.
     
     private final boolean VERBOSE = false;
     private final boolean DEBUG = true;
@@ -93,10 +93,10 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     
     private void collectTerminalSymbols() {
         // collect all terminal symbols.
-        terminalSymbols = new IntOpenHashSet();
+        nullarySymbols = new IntOpenHashSet();
         grammar.getRuleIterable().forEach((Rule r) -> {
             if (r.getArity() == 0) {
-                terminalSymbols.add(r.getParent());
+                nullarySymbols.add(r.getParent());
             }
         });
     }
@@ -157,8 +157,8 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     }
     
     
-    private boolean isTerminal(int state) {
-        return terminalSymbols.contains(state);
+    private boolean isNullarySymbol(int state) {
+        return nullarySymbols.contains(state);
     }
     
     // Return all rules, that have a given symbol on their rhs.
@@ -266,7 +266,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             //      if state \in terminal -> 0
             //      else -> neg infinity
             if (estimator.isInsideSummaryTerminal(insideSummary)) {
-                if (isTerminal(state)) {
+                if (isNullarySymbol(state)) {
                     // maximize over rules and return the best one.
                     double ret = 0;
                     for (Rule r : grammar.getRulesTopDown(state)) { 
