@@ -336,7 +336,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             SXAlgebraStructureSummary estimator = new SXAlgebraStructureSummary();
             
             // Initialize the AStarEstimator
-            AStarEstimator<String, SXInside, SXOutside> astar = new AStarEstimator(estimator, irtg.getAutomaton());
+            AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(estimator, irtg.getAutomaton());
             
             // Setting up the instream for the corpus...
             System.err.println("sentencesFilename: " + sentencesFilename);

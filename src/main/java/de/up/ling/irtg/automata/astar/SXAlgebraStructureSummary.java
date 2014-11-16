@@ -16,31 +16,13 @@ import java.util.function.Consumer;
  *
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInside, SXOutside> {
-    private final int NUM_CACHED_INSIDE_VALUES = 1000;
-    private SXInside[] cachedInsideValues = null;
-
-    public SXAlgebraStructureSummary() {
-        cachedInsideValues = new SXInside[NUM_CACHED_INSIDE_VALUES];
-        for( int i = 0; i < NUM_CACHED_INSIDE_VALUES; i++ ) {
-            cachedInsideValues[i] = new SXInside(i);
-        }
-    }
-    
-    private SXInside makeInside(int n) {
-        if( n < NUM_CACHED_INSIDE_VALUES ) {
-            return cachedInsideValues[n];
-        } else {
-            return new SXInside(n);
-        }
-    }
-    
+public class SXAlgebraStructureSummary implements AlgebraStructureSummary<Integer, SXOutside> {
     
     @Override
-    public void forEachRuleOutside(SXOutside outsideSummary, int symbol, int arity, int position, BiConsumer<SXOutside, SXInside[]> fn) {
+    public void forEachRuleOutside(SXOutside outsideSummary, int symbol, int arity, int position, BiConsumer<SXOutside, Integer[]> fn) {
 
         List<int[]> itemsLeft = new ArrayList<>(); ///< List of arrays of 'InsideSummaries' that are left to the current Outside Summary
-        SXInside[] rhs = new SXInside[arity]; ///< The actual RHS that we are building. The size does not change, but its content may do.
+        Integer[] rhs = new Integer[arity]; ///< The actual RHS that we are building. The size does not change, but its content may do.
 
         // generate all possible ways to split the value of getWordsLeft() into 
         // an array of size position (that is the number of all inside summaries
@@ -64,7 +46,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
             
             // Now copy inside summaries from the left part to the return array
             for (int i = 0; i < leftTuple.length; ++i) {
-                rhs[i] = makeInside(leftTuple[i]);
+                rhs[i] = leftTuple[i];
             }
             
             // Set the index = null, where the current outside summary is.
@@ -84,7 +66,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
 
                 // Copy inside summaries from the right part to the return array
                 for (int j = 0; j < rightTuple.length; ++j) {
-                    rhs[leftTuple.length + 1 + j] = makeInside(rightTuple[j]);
+                    rhs[leftTuple.length + 1 + j] = rightTuple[j];
                 }
                 
                 // Create outside summary on the lhs of this 'rule'
@@ -98,15 +80,15 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
     }
 
     @Override
-    public void forEachRuleInside(SXInside insideSummary, int arity, Consumer<SXInside[]> fn) {
+    public void forEachRuleInside(Integer insideSummary, int arity, Consumer<Integer[]> fn) {
         // SXInsides will be returned if and only if:
         //      * The number of returned items is equal to the given arity 
         //      * The lengths of all items for a rule sum up to the length of the given spans
         //      * No item has the length 0
-        generate(0, insideSummary.getSpan(), new int[arity], true, tuple -> {
-            SXInside[] ret = new SXInside[arity];
+        generate(0, insideSummary, new int[arity], true, tuple -> {
+            Integer[] ret = new Integer[arity];
             for (int i = 0; i < tuple.length; i++) {
-                ret[i] = makeInside(tuple[i]);
+                ret[i] = tuple[i];
             }
             fn.accept(ret);
         });
@@ -148,8 +130,8 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<SXInsi
     }
 
     @Override
-    public boolean isInsideSummaryTerminal(SXInside insideSummary) {
-        return insideSummary.getSpan() == 1;
+    public boolean isInsideSummaryTerminal(Integer insideSummary) {
+        return insideSummary == 1;
     }
 
 }
