@@ -12,7 +12,7 @@ package de.up.ling.irtg.automata.astar;
  * and to the right.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXOutside implements Summary {
+public class SXOutside {
     private int wordsLeft;
     private int wordsRight;
 

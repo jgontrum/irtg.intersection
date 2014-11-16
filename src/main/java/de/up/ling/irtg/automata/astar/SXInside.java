@@ -11,7 +11,7 @@ package de.up.ling.irtg.automata.astar;
  * Contains only the amount of words inside the span.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXInside implements Summary{
+public class SXInside {
     private int span;
 
     public SXInside(int span) {

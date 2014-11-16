@@ -15,7 +15,7 @@ import java.util.function.Consumer;
  * @param <OutsideSummary>
  * @param <InsideSummary>
  */
-public interface AlgebraStructureSummary<InsideSummary extends Summary, OutsideSummary extends Summary> {
+public interface AlgebraStructureSummary<InsideSummary, OutsideSummary> {
     void forEachRuleOutside(OutsideSummary outsideSummary, int symbol, int arity, int position, BiConsumer<OutsideSummary, InsideSummary[]> todo);
     void forEachRuleInside(InsideSummary insideSummary, int arity, Consumer<InsideSummary[]>  todo);    
         
