@@ -14,15 +14,11 @@ import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.irtg.codec.InputCodec;
 import de.up.ling.irtg.codec.IrtgInputCodec;
 import de.up.ling.irtg.codec.ParseException;
-import de.up.ling.irtg.codec.PcfgIrtgInputCodec;
 import de.up.ling.irtg.util.MutableDouble;
-import de.up.ling.irtg.util.Util;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import it.unimi.dsi.fastutil.longs.Long2DoubleMap;
-import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2DoubleMap;
 import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap;
 import java.io.BufferedReader;
@@ -36,7 +32,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javafx.util.Pair;
 
 /**
  *
@@ -49,14 +44,13 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     private final AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator;
     private final TreeAutomaton<String> grammar;
     private Int2ObjectMap<Set<Rule>> rhsSymbolToRules;  //< maps a symbol to a set of rules, where it occurs on the rhs
-    private IntSet nullarySymbols;                     //< set of all symbols, that are the parent of a 0-ary rule.
+    private IntSet nullarySymbols;                      //< set of all symbols, that are the parent of a 0-ary rule.
     
-    private final boolean VERBOSE = false;
-    private final boolean DEBUG = true;
+    private final boolean DEBUG = false;
 
     // Caches
-    private List<Object2DoubleMap<OutsideSummary>> outsideCaches; 
-    private List<Object2DoubleMap<InsideSummary>> insideCaches;  
+    private final List<Object2DoubleMap<OutsideSummary>> outsideCaches; 
+    private final List<Object2DoubleMap<InsideSummary>> insideCaches;  
 
  
     public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<String> grammar) {
@@ -67,11 +61,165 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         insideCaches = new ArrayList<>();
 
         sortRulesByRHS();
-        collectTerminalSymbols();
+        collectNullarySymbols();
         initialiseCaches();
     }
     
-    // Datastructure functions
+    /**
+     * Estimates the outside probability for a summary and its state.
+     * @param state
+     * @param outsideSummary
+     * @return 
+     */
+    public double estimateOutside(int state, OutsideSummary outsideSummary) {
+        if (DEBUG) {
+            System.err.println("\nestimateOutside: New run for state '" + grammar.getStateForId(state) + "' and outsideSummary " + outsideSummary);
+        }
+        
+        Object2DoubleMap<OutsideSummary> stateCache = outsideCaches.get(state);
+        double currentCachedValue = stateCache.getOrDefault(outsideSummary, Double.NaN);
+        
+        // Check cache first
+        if (!Double.isNaN(currentCachedValue)) {
+            if (DEBUG) {
+                System.err.println("estimateOutside: Returning from cache: " + currentCachedValue);
+            }
+            return currentCachedValue;
+        } else {
+            // Set marker to identify circles in the automaton
+            stateCache.put(outsideSummary, Double.NEGATIVE_INFINITY);
+            
+            // Base case: summary is complete 
+            if (estimator.isOutsideSummaryComplete(outsideSummary)) {
+                // if the state is the startsymbol of the grammar, return 0
+                double ret = grammar.getFinalStates().contains(state) ? 0 : Double.NEGATIVE_INFINITY;
+                
+                if (DEBUG) {
+                    System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): outsideSummary is complete, returning " + ret);
+                }
+                
+                stateCache.put(outsideSummary, ret);
+                return ret;
+            }
+
+            // Recursive case:
+            // Estimate the outside value by iterating over all rules where OS 
+            // appeares as child and over all positions that OS can have.
+            // Calculate the outside estimate and maximize it.
+            MutableDouble score = new MutableDouble(Double.NEGATIVE_INFINITY);
+            getRulesForRHSSymbol(state).stream().forEach((r) -> {
+                // Iterate over all positions in the rhs where the current state matches the state at the position on the rhs
+                for (int position = 0; position < r.getArity(); ++position) {
+                    if (state == r.getChildren()[position]) {
+                        // Getting Outside Summaries and a pairs of an Inside Summary and an Integer that shows the position of the IS
+                        estimator.forEachRuleOutside(outsideSummary, r.getLabel(), r.getArity(), position, (OutsideSummary os, InsideSummary[] insideSummaries) -> {
+                            
+                            double currentEstimate = Math.log(r.getWeight()); 
+                            
+                            // Calculate the inside summary for all other child states.
+                            for (int i = 0; i < insideSummaries.length; i++) {
+                                if (insideSummaries[i] != null) { // insideSummaries is null on the position of OS
+                                    currentEstimate += estimateInside(r.getChildren()[i], insideSummaries[i]);
+                                }
+                            }
+
+                            // Now calculate the outside for the parent state
+                            currentEstimate += estimateOutside(r.getParent(), os);
+             
+                            // Maximize
+                            score.setValue((currentEstimate > score.getValue()) ? currentEstimate : score.getValue()); 
+                        });
+                    }
+                }
+             
+            });
+
+            
+            // Store value in cache
+            if (DEBUG) {
+                System.err.println("estimateOutsideestimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): returning=" + score.getValue() + "\n");
+            }
+            stateCache.put(outsideSummary, score.getValue());
+            
+            return score.getValue();
+        }
+    }
+    
+    /**
+     * Estimate the inside probability of a summary and its state.
+     * @param state
+     * @param insideSummary
+     * @return
+     */
+    public double estimateInside(int state, InsideSummary insideSummary) {
+        if (DEBUG) System.err.println("\nestimateInside: New run for state=" + grammar.getStateForId(state) + " is="+insideSummary);
+        
+        Object2DoubleMap<InsideSummary> stateCache = insideCaches.get(state);
+        double currentCachedValue = stateCache.getOrDefault(insideSummary, Double.NaN);
+        
+        if (!Double.isNaN(currentCachedValue)) {
+            // found in cache
+            if (DEBUG) {
+                System.err.println("nestimateInside: Returning from cache: " + currentCachedValue);
+            }
+            
+            return currentCachedValue;
+        } else {
+            // Set marker to avoid circles
+            stateCache.put(insideSummary, Double.NEGATIVE_INFINITY);
+                        
+            // Base case: 
+            // If the current inside summary is terminal, return the 
+            // weight of the best rule with the state as parent state.
+            if (estimator.isInsideSummaryTerminal(insideSummary)) {
+                if (isNullarySymbol(state)) {
+                    // maximize over rules and return the best one.
+                    double ret = 0;
+                    for (Rule r : grammar.getRulesTopDown(state)) { 
+                        if (r.getWeight() > ret) ret = r.getWeight();
+                    }
+                    
+                    if (DEBUG) {
+                        System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): IS is terminal and state is terminal. Returning " + Math.log(ret) + ".");
+                    }
+                    
+                    ret = Math.log(ret);
+                    stateCache.put(insideSummary, ret);
+                    return ret;
+                }
+            }
+            
+            // Recursive case: 
+            // Iterate over all rules that have the current state as parent 
+            // and maximize over the inside estimate of the child states
+            // of the rules.
+            MutableDouble score = new MutableDouble(Double.NEGATIVE_INFINITY);
+            for (Rule r : grammar.getRulesTopDown(state)) {
+                estimator.forEachRuleInside(insideSummary, r.getArity(),
+                        newInsideSummaries -> {
+                        
+                            double currentEstimate = Math.log(r.getWeight());
+
+                            // Get all inside estimates of the children
+                            for (int i = 0; i < newInsideSummaries.length; i++) {
+                                currentEstimate += estimateInside(r.getChildren()[i], newInsideSummaries[i]);
+                            }
+                            
+                            // Maximize 
+                            score.setValue((currentEstimate > score.getValue()) ? currentEstimate : score.getValue()); 
+                        });
+            }
+            
+            // Save the value on the cache and return it.
+            if (DEBUG) {
+                System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): returning " + score.getValue());
+            }
+            stateCache.put(insideSummary, score.getValue());
+            return score.getValue();
+        }
+    }
+    
+        // Datastructure functions
     //   Build datastructures 
     private void sortRulesByRHS() {
         // Calculation of the outside estimate requires access to rules that have 
@@ -90,8 +238,11 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             }
         }
     }
-    
-    private void collectTerminalSymbols() {
+
+    ////////////////////////////////////////////////////////////
+    /////////////// Private helper functions ///////////////////
+    ////////////////////////////////////////////////////////////
+    private void collectNullarySymbols() {
         // collect all terminal symbols.
         nullarySymbols = new IntOpenHashSet();
         grammar.getRuleIterable().forEach((Rule r) -> {
@@ -100,67 +251,26 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             }
         });
     }
-    
+
     private void initialiseCaches() {
         // The caches are organised as an array of maps
         // where the array stores the states of the grammar
         // as indices. So we have to get the biggest state
         // number.
-        
+
         int indexSize = grammar.getAllStates().size();
-        
+
         // initilize the arrays
         for (int i = 0; i <= indexSize; i++) {
             outsideCaches.add(new Object2DoubleOpenHashMap<>());
             insideCaches.add(new Object2DoubleOpenHashMap<>());
         }
     }
-    
-    private void saveInInsideCache(InsideSummary key, double value, int state) {
-        Object2DoubleMap<InsideSummary> currentMap = insideCaches.get(state);
-        
-        Double oldValue = currentMap.get(key);
-        if( oldValue == null || value > oldValue ) {
-            currentMap.put(key, value);
-        }
-    }
-    
-    private void saveInOutsideCache(OutsideSummary key, double value, int state) {
-        Object2DoubleMap<OutsideSummary> currentMap = outsideCaches.get(state);
-        
-        Double oldValue = currentMap.get(key);
-        
-        if( oldValue == null|| value > oldValue ) {
-            currentMap.put(key, value);
-        }
-    }
-    
-    //   Access datastructures
-    
-    //     Cache
-    private double getInsideCache(InsideSummary key, int state) {
-        return (checkInsideCache(key,state))? insideCaches.get(state).get(key) : Double.NEGATIVE_INFINITY;
-    }
-    
-    private double getOutsideCache(OutsideSummary key, int state) {
-        return (checkOutsideCache(key, state)) ? outsideCaches.get(state).get(key) : Double.NEGATIVE_INFINITY;
-    }
-    
-    private boolean checkInsideCache(InsideSummary key, int state) {
-        if (state >= insideCaches.size()) return false;
-        return insideCaches.get(state).containsKey(key);
-    }
 
-    private boolean checkOutsideCache(OutsideSummary key, int state) {
-        if (state >= outsideCaches.size()) return false;
-        return outsideCaches.get(state).containsKey(key);
-    }
-    
-    
     private boolean isNullarySymbol(int state) {
         return nullarySymbols.contains(state);
     }
-    
+
     // Return all rules, that have a given symbol on their rhs.
     private Set<Rule> getRulesForRHSSymbol(int symbol) {
         if (rhsSymbolToRules.containsKey(symbol)) {
@@ -169,7 +279,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             return new HashSet<>();
         }
     }
-    
+
     private void printRhsSymbolToRules() {
         rhsSymbolToRules.keySet().forEach(key -> {
             rhsSymbolToRules.get(key).forEach(rule -> {
@@ -180,157 +290,20 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     }
 
     
-    // estimate Outside & Inside
-
-    public double estimateOutside(int state, OutsideSummary outsideSummary) {
-        if (VERBOSE) System.err.println("\nestimateOutside: New run for state '" + grammar.getStateForId(state) + "' and outsideSummary "+ outsideSummary);
-        
-        // check caches first
-        if (checkOutsideCache(outsideSummary, state)) {
-            if (VERBOSE) System.err.println("estimateOutside: Returning from cache: " + getOutsideCache(outsideSummary, state));
-            return getOutsideCache(outsideSummary, state);
-        } else {
-            // set marker to identify circles in the automaton
-            saveInOutsideCache(outsideSummary, Double.NEGATIVE_INFINITY, state);
-            
-            // start calculation
-            // base case for the recursion: summary is complete 
-            if (estimator.isOutsideSummaryComplete(outsideSummary)) {
-                if (VERBOSE) System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): outsideSummary is complete, returning " + (grammar.getFinalStates().contains(state) ? 0 : Double.NEGATIVE_INFINITY));
-                // if the state is the startsymbol of the grammar, return 0
-                double ret = grammar.getFinalStates().contains(state) ? 0 : Double.NEGATIVE_INFINITY;
-                
-                saveInOutsideCache(outsideSummary, ret, state);
-                return ret;
-            }
-
-            MutableDouble score = new MutableDouble(Double.NEGATIVE_INFINITY);
-            getRulesForRHSSymbol(state).stream().forEach((r) -> {
-                if (VERBOSE) System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Current rule for " + outsideSummary + " with state " + grammar.getStateForId(state) + " : " + r.toString(grammar));
-                
-                // Iterate over all positions in the rhs where the current state matches the state at the position on the rhs
-                for (int position = 0; position < r.getArity(); ++position) {
-                    if (state == r.getChildren()[position]) {
-                        if (VERBOSE) System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): pos: " + position);
-                        // Getting Outside Summaries and a pairs of an Inside Summary and an Integer that shows the position of the IS
-                        estimator.forEachRuleOutside(outsideSummary, r.getLabel(), r.getArity(), position, (OutsideSummary os, InsideSummary[] insideSummaries) -> {
-                            
-                            double currentEstimate = Math.log(r.getWeight()); // P(rule) ...
-                            if (VERBOSE) System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): currentEstimate P(Rule) -> " + currentEstimate);
-      
-                            for (int i = 0; i < insideSummaries.length; i++) {
-                                if (insideSummaries[i] != null) {
-                                    if (VERBOSE) System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Running inside estimation for state " + grammar.getStateForId(r.getChildren()[i]) + " and " + insideSummaries[i] + " on position " + i);
-                                    currentEstimate += estimateInside(r.getChildren()[i], insideSummaries[i]);
-                      
-                                    if (VERBOSE) System.err.println("\nestimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): currentEstimate -> " + currentEstimate);
-                                }
-                            }
-
-                            if (VERBOSE) System.err.println("estimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): Running outside estimation for state " + grammar.getStateForId(r.getParent()) + " and " + os);
-                            double eo = estimateOutside(r.getParent(), os); // ... * estimateOutside(A,s) ...
-                      
-                            currentEstimate += eo;
-             
-                            score.setValue((currentEstimate > score.getValue()) ? currentEstimate : score.getValue()); // maximize over weights
-                        });
-                    }
-                }
-             
-            });
-
-            if (VERBOSE) System.err.println("estimateOutsideestimateOutside(" + grammar.getStateForId(state) + "," + outsideSummary + "): returning=" + score.getValue() + "\n");
-            
-            // store value in cache
-            saveInOutsideCache(outsideSummary, score.getValue(), state);
-            
-            return score.getValue();
-        }
-    }
     
-    public double estimateInside(int state, InsideSummary insideSummary) {
-        if (VERBOSE) System.err.println("\nestimateInside: New run for state=" + grammar.getStateForId(state) + " is="+insideSummary);
-        
-  
-        if (checkInsideCache(insideSummary, state)) {  // TODO - low-level zugriffe auf hashmap
-            // found in cache
-            if (VERBOSE) System.err.println("nestimateInside: Returning from cache: " + getInsideCache(insideSummary, state));
-            return getInsideCache(insideSummary, state);
-        } else {
-            // set marker to avoid circles
-            saveInInsideCache(insideSummary, Double.NEGATIVE_INFINITY, state);
-            
-//            System.err.println("doing work for: " + insideSummary + ", state " + state);
-            
-            // if IS == 0: 
-            //      if state \in terminal -> 0
-            //      else -> neg infinity
-            if (estimator.isInsideSummaryTerminal(insideSummary)) {
-                if (isNullarySymbol(state)) {
-                    // maximize over rules and return the best one.
-                    double ret = 0;
-                    for (Rule r : grammar.getRulesTopDown(state)) { 
-                        if (r.getWeight() > ret) ret = r.getWeight();
-                    }
-                    if (VERBOSE) System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): IS is terminal and state is terminal. Returning " + Math.log(ret) + ".");
-                    
-                    ret = Math.log(ret);
-                    
-                    saveInInsideCache(insideSummary, ret, state);
-                    return ret;
-                }
-            }
-
-            MutableDouble score = new MutableDouble(Double.NEGATIVE_INFINITY);
-
-        // for rule state -> x y:
-            //      for split in 1 -> span-1:
-            //          inside(x, split)
-            //          inside(y, span - split)
-            //          P(rule)
-            for (Rule r : grammar.getRulesTopDown(state)) {
-                if (VERBOSE) System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): Current rule: " + r.toString(grammar));
-                estimator.forEachRuleInside(insideSummary, r.getArity(),
-                        newInsideSummaries -> {
-                            if (VERBOSE) System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): forEachRuleInside for rule " + r.toString(grammar)
-                                    + "\n  new InsideSummaries: " + Arrays.toString(newInsideSummaries));
-
-                            double currentEstimate = Math.log(r.getWeight());
-                            if (VERBOSE) System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): current estimate P(rule): " + currentEstimate);
-
-                            for (int i = 0; i < newInsideSummaries.length; i++) {
-                                if (VERBOSE) System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): Starting estimateInside for " + grammar.getStateForId(r.getChildren()[0]) + " and " + newInsideSummaries[i]);
-                                currentEstimate += estimateInside(r.getChildren()[i], newInsideSummaries[i]);
-                                if (VERBOSE) System.err.println("\nestimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): current estimate: " + currentEstimate);
-                                
-                            }
-
-                            score.setValue((currentEstimate > score.getValue()) ? currentEstimate : score.getValue()); // maximize over weights 
-                        });
-                
-
-            }
-
-            if (VERBOSE) System.err.println("estimateInside(" + grammar.getStateForId(state) + "," + insideSummary + "): returning " + score.getValue());
-            
-            saveInInsideCache(insideSummary, score.getValue(), state);
-            
-            return score.getValue();
-        }
-       
-    }
+    
     
     
     // Main method for testing purposes only 
     public static void main(String[] args) throws ParseException, IOException, ParserException {
         if (args.length == 2) {
-            String pcfgFilename = args[0];
+            String irtgFilename = args[0];
             String sentencesFilename = args[1];
             
             // Create the IRTG from file
-            System.err.println("irtgFilename: " + pcfgFilename);
+            System.err.println("irtgFilename: " + irtgFilename);
             InputCodec<InterpretedTreeAutomaton> codec = new IrtgInputCodec();
-            InterpretedTreeAutomaton irtg = codec.read(new FileInputStream(new File(pcfgFilename)));
+            InterpretedTreeAutomaton irtg = codec.read(new FileInputStream(new File(irtgFilename)));
             
             // Create AlgebraStructureSummarizer
             SXAlgebraStructureSummary estimator = new SXAlgebraStructureSummary();
@@ -356,25 +329,25 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
                 
                 
                 // As a test, calculate Outside Summaries for NNP
-                SXOutside os = summarizer.summarizeOutside(new StringAlgebra.Span(7, sentence_tok.length - 1));
-                int stateos = irtg.getAutomaton().getIdForState("VP");
                 
+//                int left = new Double(sentence_tok.length * 0.25).intValue();
+//                int right = new Double(sentence_tok.length * 0.75).intValue();
+//
+//                SXOutside os = summarizer.summarizeOutside(new StringAlgebra.Span(left, right));
+//                int stateos = irtg.getAutomaton().getIdForState("NP");
+//                
 //                System.err.println("Running for OS: " + os);
-//                estimator.forEachRuleOutside(os, stateos, 2, 1, (oss, iss) -> {
-//                    System.err.println("Outside: " + oss);
-//                    System.err.println("Insides: " + Arrays.toString(iss));
-//                    System.err.println("");
-//                });
+//  
+//                
+//                
+//                
+//                // Run the algorithm:
+//                System.err.println("Result for " + irtg.getAutomaton().getStateForId(stateos) + " and outside summary " + os + ":\n  " + astar.estimateOutside(stateos, os));
                 
-                
-                
+                Integer is = summarizer.summarizeInside(new StringAlgebra.Span(0, sentence_tok.length));
+                int state = irtg.getAutomaton().getIdForState("_S_");
                 // Run the algorithm:
-                System.err.println("Result for " + irtg.getAutomaton().getStateForId(stateos) + " and outside summary " + os + ":\n  " + astar.estimateOutside(stateos, os));
-                
-//                SXInside is = summarizer.summarizeInside(new StringAlgebra.Span(0, sentence_tok.length));
-//                int state = irtg.getAutomaton().getIdForState("S");
-                // Run the algorithm:
-//                System.err.println("Result for " + irtg.getAutomaton().getStateForId(state) + " and inside summary " + is + ":\n  " + astar.estimateInside(state, is));
+                System.err.println("Result for " + irtg.getAutomaton().getStateForId(state) + " and inside summary " + is + ":\n  " + astar.estimateInside(state, is));
 
             }
         } else {
