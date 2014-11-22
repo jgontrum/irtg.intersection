@@ -42,7 +42,7 @@ import java.util.Set;
  */
 public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     private final AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator;
-    private final TreeAutomaton<String> grammar;
+    private final TreeAutomaton<State> grammar;
     private Int2ObjectMap<Set<Rule>> rhsSymbolToRules;  //< maps a symbol to a set of rules, where it occurs on the rhs
     private IntSet nullarySymbols;                      //< set of all symbols, that are the parent of a 0-ary rule.
     
@@ -53,7 +53,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     private final List<Object2DoubleMap<InsideSummary>> insideCaches;  
 
  
-    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<String> grammar) {
+    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar) {
         this.estimator = estimator;
         this.grammar = grammar;
         
