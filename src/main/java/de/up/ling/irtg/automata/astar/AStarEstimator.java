@@ -345,10 +345,15 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
 //                System.err.println("Result for " + irtg.getAutomaton().getStateForId(stateos) + " and outside summary " + os + ":\n  " + astar.estimateOutside(stateos, os));
                 
                 Integer is = summarizer.summarizeInside(new StringAlgebra.Span(0, sentence_tok.length));
-                int state = irtg.getAutomaton().getIdForState("_S_");
-                // Run the algorithm:
-                System.err.println("Result for " + irtg.getAutomaton().getStateForId(state) + " and inside summary " + is + ":\n  " + astar.estimateInside(state, is));
+                irtg.getAutomaton().getFinalStates().stream().forEach(state -> {
+                
+                    // Run the algorithm:
+                    System.err.println("Result for " + irtg.getAutomaton().getStateForId(state) + " and inside summary " + is + ":\n  " + astar.estimateInside(state, is));
 
+                
+                });
+                
+                
             }
         } else {
             System.err.println("First argument: Path to IRTG. Second argument: Path to sentences");
