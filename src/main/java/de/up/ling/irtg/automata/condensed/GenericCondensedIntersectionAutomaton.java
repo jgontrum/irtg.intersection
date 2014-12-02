@@ -53,7 +53,7 @@ import java.util.List;
  */
 public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightState> extends TreeAutomaton<Pair<LeftState, RightState>> {
 
-    private final TreeAutomaton<LeftState> left;
+     final TreeAutomaton<LeftState> left;
     private final CondensedTreeAutomaton<RightState> right;
     boolean DEBUG = false;
     private final SignatureMapper leftToRightSignatureMapper;

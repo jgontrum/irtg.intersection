@@ -7,6 +7,7 @@ package de.up.ling.irtg.automata.astar;
 
 import de.up.ling.irtg.algebra.StringAlgebra;
 import de.up.ling.irtg.automata.TreeAutomaton;
+import de.up.ling.irtg.automata.condensed.EdgeEvaluator;
 
 /**
  *
@@ -24,11 +25,9 @@ public class SXEdgeEvaluator implements EdgeEvaluator {
     }
     
     @Override
-    public double evaluate(int leftState, int rightState) {
+    public double evaluate(int leftState, int rightState, double inside) {
         StringAlgebra.Span span = decompAutomaton.getStateForId(rightState);
-        
-        double inside = aStarEstimator.estimateInside(leftState, summarizer.summarizeInside(span));
-        
+                
         double outside = aStarEstimator.estimateOutside(leftState, summarizer.summarizeOutside(span));
 
         return inside + outside;

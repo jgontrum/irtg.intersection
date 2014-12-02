@@ -3,12 +3,13 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package de.up.ling.irtg.automata.astar;
+
+package de.up.ling.irtg.automata.condensed;
 
 /**
  *
- * @author Johannes Gontrum <gontrum@uni-potsdam.de>
+ * @author gontrum
  */
 public interface EdgeEvaluator {
-    public double evaluate(int leftState, int rightState);
+    public abstract double evaluate(int leftState, int rightState, double extra);
 }

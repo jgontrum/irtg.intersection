@@ -382,7 +382,7 @@ public class IntBinaryHeapPriorityQueue implements IntPriorityQueue, IntIterator
     @Override
     public boolean addAll(IntCollection ic) {
         IntIterator it = ic.iterator();
-        boolean status = false;
+        boolean status;
 
         while (it.hasNext()) {
             status = add(it.nextInt());
