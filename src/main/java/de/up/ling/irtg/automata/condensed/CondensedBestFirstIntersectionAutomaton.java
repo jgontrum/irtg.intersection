@@ -14,7 +14,6 @@ import de.up.ling.irtg.automata.Rule;
 import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.irtg.automata.astar.AStarEstimator;
 import de.up.ling.irtg.automata.astar.AlgebraStructureSummary;
-import de.up.ling.irtg.automata.astar.CondensedAstarBottomUpIntersectionAutomaton;
 import de.up.ling.irtg.automata.astar.SXAlgebraStructureSummary;
 import de.up.ling.irtg.automata.astar.SXEdgeEvaluator;
 import de.up.ling.irtg.automata.astar.SXOutside;
