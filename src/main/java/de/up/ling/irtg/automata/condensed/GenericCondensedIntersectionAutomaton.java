@@ -5,6 +5,7 @@
  */
 package de.up.ling.irtg.automata.condensed;
 
+import com.beust.jcommander.JCommander;
 import de.saar.basic.Pair;
 import de.up.ling.irtg.Interpretation;
 import de.up.ling.irtg.InterpretedTreeAutomaton;
@@ -35,6 +36,8 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.List;
+import com.beust.jcommander.Parameter;
+
 
 /**
  * Creating a new automaton by intersecting a normal TreeAutomaton (left) and a
@@ -273,20 +276,27 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
      * @throws AntlrIrtgBuilder.ParseException
      */
     public static void main(String[] args, boolean showViterbiTrees, IntersectionCall icall) throws FileNotFoundException, ParseException, IOException, ParserException, de.up.ling.irtg.codec.ParseException {
-        if (args.length != 5) {
-            System.err.println("1. IRTG\n"
-                    + "2. Sentences\n"
-                    + "3. Interpretation\n"
-                    + "4. Output file\n"
-                    + "5. Comments");
-            System.exit(1);
+        // Prepare command line parser
+        CommandLineOptions cl = new CommandLineOptions();
+        JCommander jc = new JCommander(cl, args);
+        jc.setProgramName("IRTG Intersection");
+        
+        if (cl.help) {
+            jc.usage();
         }
 
-        String irtgFilename = args[0];
-        String sentencesFilename = args[1];
-        String interpretation = args[2];
-        String outputFile = args[3];
-        String comments = args[4];
+        String irtgFilename = cl.irtgFile;
+        String sentencesFilename = cl.sentenceFile;
+        String interpretation = cl.interpretation;
+        String outputFile = cl.outputFile;
+        String comments = cl.comments;
+        
+        // If the 'viterbi' option is set, overwrite the parameter value
+        if (cl.viterbi != null) {
+            showViterbiTrees = cl.viterbi;
+        }
+        
+        
         long totalChartTime = 0;
         long totalViterbiTime = 0;
 
@@ -385,6 +395,36 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
         } else {
             timestamp[index] = System.nanoTime();
         }
+    }
+    
+
+    private static class CommandLineOptions {
+        @Parameter
+        private List<String> parameters = new ArrayList<>();
+
+        @Parameter(names = {"--irtg"}, required = true, description = "IRTG file")
+        private String irtgFile;
+
+        @Parameter(names = {"--sent", "--sentences"}, required = true, description = "File containing one sentence per line.")
+        private String sentenceFile;
+        
+        @Parameter(names = {"-i", "--interpretation"}, required = true, description = "The interpretation to use.")
+        private String interpretation;
+        
+        @Parameter(names = {"-o", "--output"}, description = "Output file.")
+        private String outputFile = "out.txt";
+        
+        @Parameter(names = {"-c", "--comments"}, description = "Comments to this run that will be written into the output file.")
+        private String comments = "";
+        
+        @Parameter(names = {"--viterbi"}, description = "Shows viterbi trees")
+        private Boolean viterbi = null;
+        
+        @Parameter(names = {"--eval"}, description = "Saves the calculated trees one by one into this file.")
+        private boolean evalFile = false;
+        
+        @Parameter(names = {"--usage", "--info", "info", "help", "--help", "-help"}, description = "Show this information.")
+        private boolean help = false;
     }
 
 }
