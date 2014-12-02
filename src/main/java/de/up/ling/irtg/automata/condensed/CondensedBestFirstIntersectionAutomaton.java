@@ -15,7 +15,7 @@ import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.irtg.automata.astar.AStarEstimator;
 import de.up.ling.irtg.automata.astar.AlgebraStructureSummary;
 import de.up.ling.irtg.automata.astar.SXAlgebraStructureSummary;
-import de.up.ling.irtg.automata.astar.SXEdgeEvaluator;
+import de.up.ling.irtg.automata.astar.AStarEdgeEvaluator;
 import de.up.ling.irtg.automata.astar.SXOutside;
 import de.up.ling.irtg.automata.astar.SXSummarizer;
 import de.up.ling.irtg.automata.astar.Summarizer;
@@ -335,7 +335,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
                     // A*
                     Summarizer summarizer = new SXSummarizer(Arrays.asList(sentence.split(" ")));
-                    EdgeEvaluator edgeEvaluator = new SXEdgeEvaluator(astar, summarizer, decomp);
+                    EdgeEvaluator edgeEvaluator = new AStarEdgeEvaluator(astar, summarizer, decomp);
 
                     TreeAutomaton result
                             = new CondensedBestFirstIntersectionAutomaton<>(

@@ -13,12 +13,12 @@ import de.up.ling.irtg.automata.condensed.EdgeEvaluator;
  *
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXEdgeEvaluator implements EdgeEvaluator {
+public class AStarEdgeEvaluator implements EdgeEvaluator {
     private final AStarEstimator aStarEstimator;
     private final Summarizer summarizer;
     private final TreeAutomaton<StringAlgebra.Span> decompAutomaton;
     
-    public SXEdgeEvaluator(AStarEstimator aStarEstimator, Summarizer summarizer, TreeAutomaton<StringAlgebra.Span> decompAutomaton) {
+    public AStarEdgeEvaluator(AStarEstimator aStarEstimator, Summarizer summarizer, TreeAutomaton<StringAlgebra.Span> decompAutomaton) {
         this.aStarEstimator = aStarEstimator;
         this.summarizer = summarizer;
         this.decompAutomaton = decompAutomaton;
