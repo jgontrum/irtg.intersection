@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package de.up.ling.irtg.automata.astar;
+package de.up.ling.irtg.automata.condensed;
 
 import de.saar.basic.Pair;
 import de.up.ling.irtg.Interpretation;
@@ -12,21 +12,27 @@ import de.up.ling.irtg.algebra.Algebra;
 import de.up.ling.irtg.algebra.ParserException;
 import de.up.ling.irtg.automata.Rule;
 import de.up.ling.irtg.automata.TreeAutomaton;
-import de.up.ling.irtg.automata.condensed.CondensedRule;
-import de.up.ling.irtg.automata.condensed.CondensedTreeAutomaton;
-import de.up.ling.irtg.automata.condensed.GenericCondensedIntersectionAutomaton;
+import de.up.ling.irtg.automata.astar.AStarEstimator;
+import de.up.ling.irtg.automata.astar.AlgebraStructureSummary;
+import de.up.ling.irtg.automata.astar.CondensedAstarBottomUpIntersectionAutomaton;
+import de.up.ling.irtg.automata.astar.SXAlgebraStructureSummary;
+import de.up.ling.irtg.automata.astar.SXEdgeEvaluator;
+import de.up.ling.irtg.automata.astar.SXOutside;
+import de.up.ling.irtg.automata.astar.SXSummarizer;
+import de.up.ling.irtg.automata.astar.Summarizer;
 import de.up.ling.irtg.codec.InputCodec;
 import de.up.ling.irtg.hom.Homomorphism;
 import de.up.ling.irtg.signature.IdentitySignatureMapper;
 import de.up.ling.irtg.signature.SignatureMapper;
 import de.up.ling.irtg.util.ArrayInt2IntMap;
+import de.up.ling.irtg.util.IntBinaryHeapPriorityQueue;
 import de.up.ling.irtg.util.IntInt2IntMap;
+import de.up.ling.irtg.util.IntPriorityQueue;
 import de.up.ling.irtg.util.Util;
-import de.up.ling.tree.ParseException;
+import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
+import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntPriorityQueue;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -47,21 +53,24 @@ import java.util.List;
  *
  * @author koller
  */
-public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> extends TreeAutomaton<Pair<LeftState, RightState>> {
+public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> extends TreeAutomaton<Pair<LeftState, RightState>> {
 
-    private TreeAutomaton<LeftState> left;
-    private CondensedTreeAutomaton<RightState> right;
-    private Int2IntMap stateToLeftState;
-    private Int2IntMap stateToRightState;
+    private final TreeAutomaton<LeftState> left;
+    private final CondensedTreeAutomaton<RightState> right;
+    private final Int2IntMap stateToLeftState;
+    private final Int2IntMap stateToRightState;
     private final SignatureMapper leftToRightSignatureMapper;
     private final IntInt2IntMap stateMapping;
     private final EdgeEvaluator edgeEvaluator;
+    private final Int2DoubleMap viterbiScore;
 
-    public CondensedAstarBottomUpIntersectionAutomaton(TreeAutomaton<LeftState> left, CondensedTreeAutomaton<RightState> right, SignatureMapper sigMapper, EdgeEvaluator edgeEvaluator) {
+    public CondensedBestFirstIntersectionAutomaton(TreeAutomaton<LeftState> left, CondensedTreeAutomaton<RightState> right, SignatureMapper sigMapper, EdgeEvaluator edgeEvaluator) {
         super(left.getSignature()); // TODO = should intersect this with the (remapped) right signature
 
         this.left = left;
         this.right = right;
+        
+        this.edgeEvaluator = edgeEvaluator;
 
         stateToLeftState = new ArrayInt2IntMap();
         stateToRightState = new ArrayInt2IntMap();
@@ -69,7 +78,7 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
         this.leftToRightSignatureMapper = sigMapper;
         stateMapping = new IntInt2IntMap();
         
-        this.edgeEvaluator = edgeEvaluator;
+        viterbiScore = new Int2DoubleOpenHashMap();
     }
 
     @Override
@@ -81,7 +90,8 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
             
             right.makeAllRulesCondensedExplicit();
 
-            IntPriorityQueue agenda = new IntArrayFIFOQueue();
+            IntPriorityQueue agenda = new IntBinaryHeapPriorityQueue();
+
             IntSet seenStates = new IntOpenHashSet();
 
             // initialize agenda with nullary rules
@@ -97,7 +107,11 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
 //                        System.err.println("left: " + leftRule.toString(left));
                         Rule rule = combineRules(leftRule, rightRule);
                         storeRule(rule);
-                        agenda.enqueue(rule.getParent());
+                        viterbiScore.put(rule.getParent(), rule.getWeight());
+
+                        double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), rule.getWeight());
+                        
+                        agenda.add(rule.getParent(), estimate);
                         seenStates.add(rule.getParent());
                     }
                 }
@@ -109,8 +123,9 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
             while (!agenda.isEmpty()) {
 //                System.err.println("ag: " + agenda);
 
-                int statePairID = agenda.dequeueInt();
+                int statePairID = agenda.removeFirst();
                 int rightState = stateToRightState.get(statePairID);
+                double currentViterbiScore = viterbiScore.get(statePairID);
 
 //                System.err.println("pop: " + statePairID + " = " + left.getStateForId(stateToLeftState.get(statePairID)) + ", " + right.getStateForId(stateToRightState.get(statePairID)));
 
@@ -132,9 +147,17 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
                     left.foreachRuleBottomUpForSets(rightRule.getLabels(right), remappedChildren, leftToRightSignatureMapper, leftRule -> {
                         Rule rule = combineRules(leftRule, rightRule);
                         storeRule(rule);
-                        if (seenStates.add(rule.getParent())) {
-                            agenda.enqueue(rule.getParent());
+                        
+                        double score = currentViterbiScore * rule.getWeight();
+                        double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), score);
+
+                        // Update viterbi score if needed (Problem with different rule? TODO)
+                        if (estimate > viterbiScore.getOrDefault(rule.getParent(), Double.NEGATIVE_INFINITY)) {
+                            viterbiScore.put(rule.getParent(), score);
                         }
+                        
+                        seenStates.add(rule.getParent());
+                        agenda.relaxPriority(rule.getParent(), estimate);
                     });
                 }
             }
@@ -235,7 +258,7 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
      * @throws ParserException
      * @throws AntlrIrtgBuilder.ParseException
      */
-    public static void main(String[] args) throws FileNotFoundException, ParseException, IOException, ParserException, de.up.ling.irtg.codec.ParseException {
+    public static void main(String[] args) throws FileNotFoundException, de.up.ling.tree.ParseException, IOException, ParserException, de.up.ling.irtg.codec.ParseException {
         if (args.length != 5) {
             System.err.println("1. IRTG\n"
                     + "2. Sentences\n"
@@ -296,11 +319,10 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
                 String sentence;
                 int times = 0;
                 int sentences = 0;
-                
+
                 // A* objects
                 AlgebraStructureSummary<Integer, SXOutside> structureSummarizer = new SXAlgebraStructureSummary();
-                AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(structureSummarizer, irtg.getAutomaton());                
-                
+                AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(structureSummarizer, irtg.getAutomaton());
 
                 while ((sentence = br.readLine()) != null) {
                     ++sentences;
@@ -315,16 +337,15 @@ public class CondensedAstarBottomUpIntersectionAutomaton<LeftState, RightState> 
                     // A*
                     Summarizer summarizer = new SXSummarizer(Arrays.asList(sentence.split(" ")));
                     EdgeEvaluator edgeEvaluator = new SXEdgeEvaluator(astar, summarizer, decomp);
-                    
-                    TreeAutomaton result 
-                            = new CondensedAstarBottomUpIntersectionAutomaton<>(
-                                    irtg.getAutomaton(), 
-                                    inv, 
+
+                    TreeAutomaton result
+                            = new CondensedBestFirstIntersectionAutomaton<>(
+                                    irtg.getAutomaton(),
+                                    inv,
                                     new IdentitySignatureMapper(irtg.getAutomaton().getSignature()),
                                     edgeEvaluator
                             );
                     result.makeAllRulesExplicit();
-                            
 
                     updateBenchmark(timestamp, 3, useCPUTime, benchmarkBean);
 
