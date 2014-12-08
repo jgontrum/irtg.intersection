@@ -6,6 +6,8 @@
 package de.up.ling.irtg.automata.condensed;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import de.saar.basic.Pair;
 import de.up.ling.irtg.Interpretation;
 import de.up.ling.irtg.InterpretedTreeAutomaton;
@@ -14,11 +16,13 @@ import de.up.ling.irtg.algebra.ParserException;
 import de.up.ling.irtg.automata.Rule;
 import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.irtg.codec.InputCodec;
+import de.up.ling.irtg.codec.PcfgIrtgInputCodec;
 import de.up.ling.irtg.hom.Homomorphism;
 import de.up.ling.irtg.signature.SignatureMapper;
 import de.up.ling.irtg.util.IntInt2IntMap;
 import de.up.ling.irtg.util.Util;
 import de.up.ling.tree.ParseException;
+import de.up.ling.tree.Tree;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -36,8 +40,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.List;
-import com.beust.jcommander.Parameter;
-
 
 /**
  * Creating a new automaton by intersecting a normal TreeAutomaton (left) and a
@@ -56,7 +58,7 @@ import com.beust.jcommander.Parameter;
  */
 public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightState> extends TreeAutomaton<Pair<LeftState, RightState>> {
 
-     final TreeAutomaton<LeftState> left;
+    private final TreeAutomaton<LeftState> left;
     private final CondensedTreeAutomaton<RightState> right;
     boolean DEBUG = false;
     private final SignatureMapper leftToRightSignatureMapper;
@@ -277,26 +279,22 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
      */
     public static void main(String[] args, boolean showViterbiTrees, IntersectionCall icall) throws FileNotFoundException, ParseException, IOException, ParserException, de.up.ling.irtg.codec.ParseException {
         // Prepare command line parser
-        CommandLineOptions cl = new CommandLineOptions();
-        JCommander jc = new JCommander(cl, args);
-        jc.setProgramName("IRTG Intersection");
+//        CommandLineOptions cli = new CommandLineOptions(args);
         
-        if (cl.help) {
-            jc.usage();
+        if (args.length != 5) {
+            System.err.println("1. IRTG\n"
+                    + "2. Sentences\n"
+                    + "3. Interpretation\n"
+                    + "4. Output file\n"
+                    + "5. Comments");
+            System.exit(1);
         }
 
-        String irtgFilename = cl.irtgFile;
-        String sentencesFilename = cl.sentenceFile;
-        String interpretation = cl.interpretation;
-        String outputFile = cl.outputFile;
-        String comments = cl.comments;
-        
-        // If the 'viterbi' option is set, overwrite the parameter value
-        if (cl.viterbi != null) {
-            showViterbiTrees = cl.viterbi;
-        }
-        
-        
+        String irtgFilename = args[0];
+        String sentencesFilename = args[1];
+        String interpretation = args[2];
+        String outputFile = args[3];
+        String comments = args[4];
         long totalChartTime = 0;
         long totalViterbiTime = 0;
 
@@ -312,7 +310,9 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
 
         updateBenchmark(timestamp, 0, useCPUTime, benchmarkBean);
 
-        InputCodec<InterpretedTreeAutomaton> codec = InputCodec.getInputCodecByExtension(Util.getFilenameExtension(irtgFilename));
+//        InputCodec<InterpretedTreeAutomaton> codec = InputCodec.getInputCodecByExtension(Util.getFilenameExtension(irtgFilename));
+        InputCodec<InterpretedTreeAutomaton> codec = new PcfgIrtgInputCodec();
+
         InterpretedTreeAutomaton irtg = codec.read(new FileInputStream(new File(irtgFilename)));
         Interpretation interp = irtg.getInterpretation(interpretation);
         Homomorphism hom = interp.getHomomorphism();
@@ -366,7 +366,9 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                     if (result.getFinalStates().isEmpty()) {
                         System.err.println("**** EMPTY ****\n");
                     } else if (showViterbiTrees) {
-                        System.err.println(result.viterbi());
+//                        Tree<String> vit = hom.apply(result.viterbi().toLispString());
+                        
+                        System.err.println(result.viterbi().toLispString());
                         updateBenchmark(timestamp, 4, useCPUTime, benchmarkBean);
                         long thisViterbiTime = timestamp[4] - timestamp[3];
                         totalViterbiTime += thisViterbiTime;
@@ -397,8 +399,22 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
         }
     }
     
-
+    
     private static class CommandLineOptions {
+
+        CommandLineOptions(String[] args) {
+            JCommander jc = new JCommander(this);
+
+            try {
+                jc.parse(args);
+            } catch (ParameterException parameterException) {
+                System.err.println(parameterException.getMessage());
+                jc.usage();
+                System.exit(1);
+            }
+
+        }
+        
         @Parameter
         private List<String> parameters = new ArrayList<>();
 
@@ -407,23 +423,23 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
 
         @Parameter(names = {"--sent", "--sentences"}, required = true, description = "File containing one sentence per line.")
         private String sentenceFile;
-        
-        @Parameter(names = {"-i", "--interpretation"}, required = true, description = "The interpretation to use.")
-        private String interpretation;
-        
+
+        @Parameter(names = {"-i", "--interpretation"}, required = false, description = "The interpretation to use.")
+        private String interpretation = "";
+
         @Parameter(names = {"-o", "--output"}, description = "Output file.")
         private String outputFile = "out.txt";
-        
+
         @Parameter(names = {"-c", "--comments"}, description = "Comments to this run that will be written into the output file.")
         private String comments = "";
-        
+
         @Parameter(names = {"--viterbi"}, description = "Shows viterbi trees")
         private Boolean viterbi = null;
-        
+
         @Parameter(names = {"--eval"}, description = "Saves the calculated trees one by one into this file.")
         private boolean evalFile = false;
-        
-        @Parameter(names = {"--usage", "--info", "info", "help", "--help", "-help"}, description = "Show this information.")
+
+        @Parameter(names = {"--usage", "--info", "info", "help", "--help", "-help"}, description = "Show this information.", help = true)
         private boolean help = false;
     }
 

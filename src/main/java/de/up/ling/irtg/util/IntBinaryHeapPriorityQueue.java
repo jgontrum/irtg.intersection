@@ -138,6 +138,7 @@ public class IntBinaryHeapPriorityQueue implements IntPriorityQueue, IntIterator
 
     private IntEntry parent(IntEntry entry) {
         int index = entry.index;
+        System.err.println("ge " + (index - 1) / 2);
         return (index > 0 ? getEntry((index - 1) / 2) : null);
     }
 
@@ -153,6 +154,11 @@ public class IntBinaryHeapPriorityQueue implements IntPriorityQueue, IntIterator
     }
 
     private int compare(IntEntry entryA, IntEntry entryB) {
+//        if (entryA == null) {
+//            return -1;
+//        } else if (entryB == null) {
+//            return 1;
+//        }
         int result = compare(entryA.priority, entryB.priority);
         if (result != 0) {
             return result;
@@ -223,10 +229,14 @@ public class IntBinaryHeapPriorityQueue implements IntPriorityQueue, IntIterator
      */
     private void heapifyUp(IntEntry entry) {
         while (true) {
+            System.err.println(entry.index);
             if (entry.index == 0) {
                 break;
             }
             IntEntry parentEntry = parent(entry);
+//            if (parentEntry == null) {
+//                break; //!
+//            }
             if (compare(entry, parentEntry) <= 0) {
                 break;
             }
@@ -449,10 +459,15 @@ public class IntBinaryHeapPriorityQueue implements IntPriorityQueue, IntIterator
      */
     @Override
     public boolean relaxPriority(int key, double priority) {
+        System.err.println("keyToEntry: " + keyToEntry.toString());
         IntEntry entry = getEntry(key);
         if (entry == null) {
+            System.err.println("Making new");
             entry = makeEntry(key);
         }
+        System.err.println("p: " + priority);
+        System.err.println("ep: " + entry.priority);
+
         if (compare(priority, entry.priority) <= 0) {
             return false;
         }
@@ -653,4 +668,23 @@ public class IntBinaryHeapPriorityQueue implements IntPriorityQueue, IntIterator
         keyToEntry = mapFactory.newMap(initCapacity);
     }
 
+    
+    public static void main(String[] args) {
+            IntBinaryHeapPriorityQueue testqueue = new IntBinaryHeapPriorityQueue();
+            System.err.println(testqueue.relaxPriority(10, 0.1));
+            System.err.println(testqueue.relaxPriority(9, 0.2));
+            testqueue.relaxPriority(8, 0.3);
+            testqueue.relaxPriority(7, 0.4);
+            testqueue.relaxPriority(6, 0.5);
+            testqueue.relaxPriority(5, 0.6);
+            testqueue.relaxPriority(4, 0.7);
+            testqueue.relaxPriority(3, 0.8);
+            testqueue.relaxPriority(2, 0.9);
+            testqueue.relaxPriority(1, 1.0);
+            
+            while (testqueue.hasNext()) {
+                int i = testqueue.removeFirst();
+                System.err.println(i);
+            }
+    }
 }
