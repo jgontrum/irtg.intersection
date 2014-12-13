@@ -281,7 +281,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
         // Prepare command line parser
 //        CommandLineOptions cli = new CommandLineOptions(args);
         
-        if (args.length != 5) {
+        if (args.length < 5) {
             System.err.println("1. IRTG\n"
                     + "2. Sentences\n"
                     + "3. Interpretation\n"
@@ -295,8 +295,15 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
         String interpretation = args[2];
         String outputFile = args[3];
         String comments = args[4];
+        String treeFile = "";
         long totalChartTime = 0;
         long totalViterbiTime = 0;
+        
+        // If there are 6 arguments, save viterbi trees
+        if (args.length == 6) {
+            showViterbiTrees = true;
+            treeFile = args[5];
+        }
 
         // initialize CPU-time benchmarking
         long[] timestamp = new long[10];
@@ -310,8 +317,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
 
         updateBenchmark(timestamp, 0, useCPUTime, benchmarkBean);
 
-//        InputCodec<InterpretedTreeAutomaton> codec = InputCodec.getInputCodecByExtension(Util.getFilenameExtension(irtgFilename));
-        InputCodec<InterpretedTreeAutomaton> codec = new PcfgIrtgInputCodec();
+        InputCodec<InterpretedTreeAutomaton> codec = InputCodec.getInputCodecByExtension(Util.getFilenameExtension(irtgFilename));
 
         InterpretedTreeAutomaton irtg = codec.read(new FileInputStream(new File(irtgFilename)));
         Interpretation interp = irtg.getInterpretation(interpretation);
@@ -333,7 +339,13 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                     + "Comments   : " + comments + "\n"
                     + "CPU-Time   : " + useCPUTime + "\n\n");
             out.flush();
-
+            
+            BufferedWriter treeOut = null;
+            if (treeFile != "") {
+                FileWriter treeOutstream = new FileWriter(new File(treeFile));
+                treeOut = new BufferedWriter(treeOutstream);
+            }
+            
             try {
                 // setting up inputstream for the sentences
                 FileInputStream instream = new FileInputStream(new File(sentencesFilename));
@@ -365,10 +377,11 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
 
                     if (result.getFinalStates().isEmpty()) {
                         System.err.println("**** EMPTY ****\n");
-                    } else if (showViterbiTrees) {
-//                        Tree<String> vit = hom.apply(result.viterbi().toLispString());
-                        
-                        System.err.println(result.viterbi().toLispString());
+                    } else if (showViterbiTrees) {                                                
+                        if (treeOut != null) {
+                            treeOut.write("(" + irtg.getInterpretation("tree").interpret(result.viterbi()) + ")\n");
+                            treeOut.flush();
+                        }
                         updateBenchmark(timestamp, 4, useCPUTime, benchmarkBean);
                         long thisViterbiTime = timestamp[4] - timestamp[3];
                         totalViterbiTime += thisViterbiTime;
@@ -410,7 +423,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
             } catch (ParameterException parameterException) {
                 System.err.println(parameterException.getMessage());
                 jc.usage();
-                System.exit(1);
+//                System.exit(1);
             }
 
         }
