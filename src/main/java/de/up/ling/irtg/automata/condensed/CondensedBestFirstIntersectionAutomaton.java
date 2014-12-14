@@ -24,9 +24,7 @@ import de.up.ling.irtg.hom.Homomorphism;
 import de.up.ling.irtg.signature.IdentitySignatureMapper;
 import de.up.ling.irtg.signature.SignatureMapper;
 import de.up.ling.irtg.util.ArrayInt2IntMap;
-import de.up.ling.irtg.util.IntBinaryHeapPriorityQueue;
 import de.up.ling.irtg.util.IntInt2IntMap;
-import de.up.ling.irtg.util.IntPriorityQueue;
 import de.up.ling.irtg.util.Util;
 import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
 import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
@@ -47,6 +45,7 @@ import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import edu.stanford.nlp.util.BinaryHeapPriorityQueue;
 
 /**
  *
@@ -89,7 +88,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
             
             right.makeAllRulesCondensedExplicit();
 
-            IntPriorityQueue agenda = new IntBinaryHeapPriorityQueue();
+            BinaryHeapPriorityQueue<Integer> agenda = new BinaryHeapPriorityQueue<>();
 
             IntSet seenStates = new IntOpenHashSet();
 
@@ -106,12 +105,17 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 //                        System.err.println("left: " + leftRule.toString(left));
                         Rule rule = combineRules(leftRule, rightRule);
                         storeRule(rule);
-                        viterbiScore.put(rule.getParent(), rule.getWeight());
-
+                        
+                        if (Math.log(rule.getWeight()) > viterbiScore.getOrDefault(rule.getParent(), Double.NEGATIVE_INFINITY)) {
+                            viterbiScore.put(rule.getParent(), Math.log(rule.getWeight()));
+                        }
+                        
                         double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), rule.getWeight());
                         
                         agenda.add(rule.getParent(), estimate);
                         seenStates.add(rule.getParent());
+//                        System.err.println("Addding " + rule.getParent() + " with estimate " + estimate);
+
                     }
                 }
             }
@@ -124,9 +128,10 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
                 int statePairID = agenda.removeFirst();
                 int rightState = stateToRightState.get(statePairID);
-                double currentViterbiScore = viterbiScore.get(statePairID);
 
-//                System.err.println("pop: " + statePairID + " = " + left.getStateForId(stateToLeftState.get(statePairID)) + ", " + right.getStateForId(stateToRightState.get(statePairID)));
+//                System.err.println("pop: " + statePairID + " = " 
+//                        + left.getStateForId(stateToLeftState.get(statePairID)) 
+//                        + ", " + right.getStateForId(stateToRightState.get(statePairID)));
 
                 rightRuleLoop:
                 for (CondensedRule rightRule : right.getCondensedRulesForRhsState(rightState)) {
@@ -147,12 +152,23 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                         Rule rule = combineRules(leftRule, rightRule);
                         storeRule(rule);
                         
-                        double score = currentViterbiScore * rule.getWeight();
-                        double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), score);
-
-                        // Update viterbi score if needed (Problem with different rule? TODO)
-                        if (estimate > viterbiScore.getOrDefault(rule.getParent(), Double.NEGATIVE_INFINITY)) {
-                            viterbiScore.put(rule.getParent(), score);
+//                        System.err.println("Rule: " + rule.toString());
+//                        System.err.println("Current parent: " + rule.getParent());
+                        
+                        double insideScore = Math.log(rule.getWeight());
+                        
+                        for (int child : rule.getChildren()) {
+//                            System.err.println("Current child: " + child);
+                            assert viterbiScore.containsKey(child);
+                            insideScore += viterbiScore.get(child);
+                        }
+                        
+                        double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), insideScore);
+//                        System.err.println("Inside:   " + insideScore);
+//                        System.err.println("Estimate: " + estimate);
+                        // Update viterbi score if needed
+                        if (insideScore > viterbiScore.getOrDefault(rule.getParent(), Double.NEGATIVE_INFINITY)) {
+                            viterbiScore.put(rule.getParent(), insideScore);
                         }
                         
                         seenStates.add(rule.getParent());
