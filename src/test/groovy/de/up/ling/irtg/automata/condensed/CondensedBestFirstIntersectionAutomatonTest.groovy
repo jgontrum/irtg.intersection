@@ -55,7 +55,7 @@ Y -> r8(X,X)
 
 
        ''';
-    @Test
+//    @Test
     public void intersectionTest() {
          // Create an IRTG
         InterpretedTreeAutomaton irtg = pi(grammarstring);
