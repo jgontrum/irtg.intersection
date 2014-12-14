@@ -26,6 +26,7 @@ import de.up.ling.irtg.signature.SignatureMapper;
 import de.up.ling.irtg.util.ArrayInt2IntMap;
 import de.up.ling.irtg.util.IntInt2IntMap;
 import de.up.ling.irtg.util.Util;
+import de.up.ling.tree.Tree;
 import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
 import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -268,13 +269,17 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
      * @param showViterbiTrees
      * @param icall what intersection should be used?
      * @throws FileNotFoundException
+     * @throws de.up.ling.tree.ParseException
      * @throws ParseException
      * @throws IOException
      * @throws ParserException
      * @throws AntlrIrtgBuilder.ParseException
      */
     public static void main(String[] args) throws FileNotFoundException, de.up.ling.tree.ParseException, IOException, ParserException, de.up.ling.irtg.codec.ParseException {
-        if (args.length != 5) {
+        // Prepare command line parser
+//        CommandLineOptions cli = new CommandLineOptions(args);
+        
+        if (args.length < 5) {
             System.err.println("1. IRTG\n"
                     + "2. Sentences\n"
                     + "3. Interpretation\n"
@@ -283,14 +288,21 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
             System.exit(1);
         }
 
-        boolean showViterbiTrees = false;
         String irtgFilename = args[0];
         String sentencesFilename = args[1];
         String interpretation = args[2];
         String outputFile = args[3];
         String comments = args[4];
+        String treeFile = "";
         long totalChartTime = 0;
         long totalViterbiTime = 0;
+        boolean showViterbiTrees = false;
+        
+        // If there are 6 arguments, save viterbi trees
+        if (args.length == 6) {
+            showViterbiTrees = true;
+            treeFile = args[5];
+        }
 
         // initialize CPU-time benchmarking
         long[] timestamp = new long[10];
@@ -305,6 +317,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
         updateBenchmark(timestamp, 0, useCPUTime, benchmarkBean);
 
         InputCodec<InterpretedTreeAutomaton> codec = InputCodec.getInputCodecByExtension(Util.getFilenameExtension(irtgFilename));
+
         InterpretedTreeAutomaton irtg = codec.read(new FileInputStream(new File(irtgFilename)));
         Interpretation interp = irtg.getInterpretation(interpretation);
         Homomorphism hom = interp.getHomomorphism();
@@ -318,14 +331,20 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
             File oFile = new File(outputFile);
             FileWriter outstream = new FileWriter(oFile);
             BufferedWriter out = new BufferedWriter(outstream);
-            out.write("Testing IntersectionAutomaton with A* condensed intersection ...\n"
+            out.write("Testing IntersectionAutomaton with condensed intersection ...\n"
                     + "IRTG-File  : " + irtgFilename + "\n"
                     + "Input-File : " + sentencesFilename + "\n"
                     + "Output-File: " + outputFile + "\n"
                     + "Comments   : " + comments + "\n"
                     + "CPU-Time   : " + useCPUTime + "\n\n");
             out.flush();
-
+            
+            BufferedWriter treeOut = null;
+            if (treeFile != "") {
+                FileWriter treeOutstream = new FileWriter(new File(treeFile));
+                treeOut = new BufferedWriter(treeOutstream);
+            }
+            
             try {
                 // setting up inputstream for the sentences
                 FileInputStream instream = new FileInputStream(new File(sentencesFilename));
@@ -338,50 +357,61 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                 // A* objects
                 AlgebraStructureSummary<Integer, SXOutside> structureSummarizer = new SXAlgebraStructureSummary();
                 AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(structureSummarizer, irtg.getAutomaton());
-
+                
                 while ((sentence = br.readLine()) != null) {
-                    ++sentences;
-                    System.err.println("\nSentence #" + sentences);
-                    System.err.println("Current sentence: " + sentence);
-                    updateBenchmark(timestamp, 2, useCPUTime, benchmarkBean);
+                    try {
+                        ++sentences;
+                        System.err.println("\nSentence #" + sentences);
+                        System.err.println("Current sentence: " + sentence);
+                        updateBenchmark(timestamp, 2, useCPUTime, benchmarkBean);
 
-                    // intersect
-                    TreeAutomaton decomp = alg.decompose(alg.parseString(sentence));
-                    CondensedTreeAutomaton inv = decomp.inverseCondensedHomomorphism(hom);
+                        // intersect
+                        TreeAutomaton decomp = alg.decompose(alg.parseString(sentence));
+                        CondensedTreeAutomaton inv = decomp.inverseCondensedHomomorphism(hom);
 
-                    // A*
-                    Summarizer summarizer = new SXSummarizer(Arrays.asList(sentence.split(" ")));
-                    EdgeEvaluator edgeEvaluator = new AStarEdgeEvaluator(astar, summarizer, decomp);
+                        // A*
+                        Summarizer summarizer = new SXSummarizer(Arrays.asList(sentence.split(" ")));
+                        EdgeEvaluator edgeEvaluator = new AStarEdgeEvaluator(astar, summarizer, decomp);
 
-                    TreeAutomaton result
-                            = new CondensedBestFirstIntersectionAutomaton<>(
-                                    irtg.getAutomaton(),
-                                    inv,
-                                    new IdentitySignatureMapper(irtg.getAutomaton().getSignature()),
-                                    edgeEvaluator
-                            );
-                    result.makeAllRulesExplicit();
+                        TreeAutomaton result
+                                = new CondensedBestFirstIntersectionAutomaton<>(
+                                        irtg.getAutomaton(),
+                                        inv,
+                                        new IdentitySignatureMapper(irtg.getAutomaton().getSignature()),
+                                        edgeEvaluator
+                                );
+                        result.makeAllRulesExplicit();
+                        
+                        updateBenchmark(timestamp, 3, useCPUTime, benchmarkBean);
 
-                    updateBenchmark(timestamp, 3, useCPUTime, benchmarkBean);
+                        long thisChartTime = (timestamp[3] - timestamp[2]);
+                        totalChartTime += thisChartTime;
+                        System.err.println("-> Chart " + (thisChartTime / 1000000) + "ms, cumulative " + totalChartTime / 1000000 + "ms");
+                        out.write("Parsed \n" + sentence + "\nIn " + ((timestamp[3] - timestamp[2]) / 1000000) + "ms.\n\n");
+                        out.flush();
 
-                    long thisChartTime = (timestamp[3] - timestamp[2]);
-                    totalChartTime += thisChartTime;
-                    System.err.println("-> Chart " + (thisChartTime / 1000000) + "ms, cumulative " + totalChartTime / 1000000 + "ms");
-                    out.write("Parsed \n" + sentence + "\nIn " + ((timestamp[3] - timestamp[2]) / 1000000) + "ms.\n\n");
-                    out.flush();
+                        if (result.getFinalStates().isEmpty()) {
+                            System.err.println("**** EMPTY ****\n");
+                            if (treeOut != null) {
+                                treeOut.write("()\n");
+                            }
+                        } else if (showViterbiTrees) {
+                            if (treeOut != null) {
+                                treeOut.write(((Tree) irtg.getInterpretation("tree").interpret(result.viterbi())).toLispString() + "\n");
+                                treeOut.flush();
+                            }
+                            updateBenchmark(timestamp, 4, useCPUTime, benchmarkBean);
+                            long thisViterbiTime = timestamp[4] - timestamp[3];
+                            totalViterbiTime += thisViterbiTime;
 
-                    if (result.getFinalStates().isEmpty()) {
-                        System.err.println("**** EMPTY ****\n");
-                    } else if (showViterbiTrees) {
-                        System.err.println(result.viterbi());
-                        updateBenchmark(timestamp, 4, useCPUTime, benchmarkBean);
-                        long thisViterbiTime = timestamp[4] - timestamp[3];
-                        totalViterbiTime += thisViterbiTime;
+                            System.err.println("-> Viterbi " + thisViterbiTime / 1000000 + "ms, cumulative " + totalViterbiTime / 1000000 + "ms");
+                        }
 
-                        System.err.println("-> Viterbi " + thisViterbiTime / 1000000 + "ms, cumulative " + totalViterbiTime / 1000000 + "ms");
+                        times += (timestamp[3] - timestamp[2]) / 1000000;
+                    } catch (Exception ex) {
+                        System.err.println("Error while intersecting: " + ex.getMessage());
                     }
-
-                    times += (timestamp[3] - timestamp[2]) / 1000000;
+                    
                 }
                 out.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n Parsed " + sentences + " sentences in " + times + "ms. \n");
                 out.flush();
