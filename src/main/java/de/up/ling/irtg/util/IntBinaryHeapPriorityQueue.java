@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.*;
 
 /**
+ * !!! Still buggy !!!
  * PriorityQueue with explicit double priority values. Larger doubles are higher
  * priorities. BinaryHeap-backed.
  *
