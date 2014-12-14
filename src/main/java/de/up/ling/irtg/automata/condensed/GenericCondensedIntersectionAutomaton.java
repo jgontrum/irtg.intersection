@@ -356,40 +356,48 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                 int sentences = 0;
 
                 while ((sentence = br.readLine()) != null) {
-                    ++sentences;
-                    System.err.println("\nSentence #" + sentences);
-                    System.err.println("Current sentence: " + sentence);
-                    updateBenchmark(timestamp, 2, useCPUTime, benchmarkBean);
+                    try {
+                        ++sentences;
+                        System.err.println("\nSentence #" + sentences);
+                        System.err.println("Current sentence: " + sentence);
+                        updateBenchmark(timestamp, 2, useCPUTime, benchmarkBean);
 
-                    // intersect
-                    TreeAutomaton decomp = alg.decompose(alg.parseString(sentence));
-                    CondensedTreeAutomaton inv = decomp.inverseCondensedHomomorphism(hom);
+                        // intersect
+                        TreeAutomaton decomp = alg.decompose(alg.parseString(sentence));
+                        CondensedTreeAutomaton inv = decomp.inverseCondensedHomomorphism(hom);
 
-                    TreeAutomaton<String> result = icall.intersect(irtg.getAutomaton(), inv);
+                        TreeAutomaton<String> result = icall.intersect(irtg.getAutomaton(), inv);
 
-                    updateBenchmark(timestamp, 3, useCPUTime, benchmarkBean);
+                        updateBenchmark(timestamp, 3, useCPUTime, benchmarkBean);
 
-                    long thisChartTime = (timestamp[3] - timestamp[2]);
-                    totalChartTime += thisChartTime;
-                    System.err.println("-> Chart " + (thisChartTime / 1000000) + "ms, cumulative " + totalChartTime / 1000000 + "ms");
-                    out.write("Parsed \n" + sentence + "\nIn " + ((timestamp[3] - timestamp[2]) / 1000000) + "ms.\n\n");
-                    out.flush();
+                        long thisChartTime = (timestamp[3] - timestamp[2]);
+                        totalChartTime += thisChartTime;
+                        System.err.println("-> Chart " + (thisChartTime / 1000000) + "ms, cumulative " + totalChartTime / 1000000 + "ms");
+                        out.write("Parsed \n" + sentence + "\nIn " + ((timestamp[3] - timestamp[2]) / 1000000) + "ms.\n\n");
+                        out.flush();
 
-                    if (result.getFinalStates().isEmpty()) {
-                        System.err.println("**** EMPTY ****\n");
-                    } else if (showViterbiTrees) {                                                
-                        if (treeOut != null) {
-                            treeOut.write("(" + irtg.getInterpretation("tree").interpret(result.viterbi()) + ")\n");
-                            treeOut.flush();
+                        if (result.getFinalStates().isEmpty()) {
+                            System.err.println("**** EMPTY ****\n");
+                            if (treeOut != null) {
+                                treeOut.write("()\n");
+                            }
+                        } else if (showViterbiTrees) {
+                            if (treeOut != null) {
+                                treeOut.write(((Tree) irtg.getInterpretation("tree").interpret(result.viterbi())).toLispString() + "\n");
+                                treeOut.flush();
+                            }
+                            updateBenchmark(timestamp, 4, useCPUTime, benchmarkBean);
+                            long thisViterbiTime = timestamp[4] - timestamp[3];
+                            totalViterbiTime += thisViterbiTime;
+
+                            System.err.println("-> Viterbi " + thisViterbiTime / 1000000 + "ms, cumulative " + totalViterbiTime / 1000000 + "ms");
                         }
-                        updateBenchmark(timestamp, 4, useCPUTime, benchmarkBean);
-                        long thisViterbiTime = timestamp[4] - timestamp[3];
-                        totalViterbiTime += thisViterbiTime;
 
-                        System.err.println("-> Viterbi " + thisViterbiTime / 1000000 + "ms, cumulative " + totalViterbiTime / 1000000 + "ms");
+                        times += (timestamp[3] - timestamp[2]) / 1000000;
+                    } catch (Exception ex) {
+                        System.err.println("Error while intersecting: " + ex.getMessage());
                     }
-
-                    times += (timestamp[3] - timestamp[2]) / 1000000;
+                    
                 }
                 out.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n Parsed " + sentences + " sentences in " + times + "ms. \n");
                 out.flush();
