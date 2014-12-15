@@ -396,6 +396,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                         times += (timestamp[3] - timestamp[2]) / 1000000;
                     } catch (Exception ex) {
                         System.err.println("Error while intersecting: " + ex.getMessage());
+                        ex.printStackTrace(System.err);
                     }
                     
                 }
