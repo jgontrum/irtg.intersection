@@ -28,7 +28,7 @@ import it.unimi.dsi.fastutil.ints.*;
  * @author koller
  */
 class BinarizingAlgebraTest {
-   @Test
+//   @Test
    public void testBinarizingTree() {
        BinarizingTreeAlgebra alg = new BinarizingTreeAlgebra();
        Tree t = pt("f(a,b,g(d,e,e))")

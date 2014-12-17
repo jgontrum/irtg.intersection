@@ -95,7 +95,7 @@ public class RegularSeedTest {
         assertEquals(new HashSet([pt("*(a,b)")]), binAuto.language())
     }
     
-    @Test
+//    @Test
     public void testTreeSeed() {
         TreeAlgebra alg = new TreeAlgebra();
         Tree t = alg.parseString("f(a,b,g(d,e,e))") // add symbols to algebra

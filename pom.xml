@@ -51,7 +51,7 @@
     <dependency>
       <groupId>it.unimi.dsi</groupId>
       <artifactId>fastutil</artifactId>
-      <version>6.5.6</version>
+      <version>6.5.16</version>
     </dependency>
 
     <dependency>
@@ -125,13 +125,6 @@
       <version>1.0.3</version>
     </dependency>
     
-    <!--Command Line Parser-->
-    <dependency>
-      <groupId>com.beust</groupId>
-      <artifactId>jcommander</artifactId>
-      <version>1.35</version>
-      <type>jar</type>
-    </dependency>
     <dependency>
       <groupId>edu.stanford.nlp</groupId>
       <artifactId>stanford-corenlp</artifactId>
