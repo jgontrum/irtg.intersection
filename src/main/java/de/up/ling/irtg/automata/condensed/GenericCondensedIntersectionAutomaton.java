@@ -5,9 +5,6 @@
  */
 package de.up.ling.irtg.automata.condensed;
 
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 import de.saar.basic.Pair;
 import de.up.ling.irtg.Interpretation;
 import de.up.ling.irtg.InterpretedTreeAutomaton;
@@ -422,47 +419,6 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
     }
     
     
-    private static class CommandLineOptions {
 
-        CommandLineOptions(String[] args) {
-            JCommander jc = new JCommander(this);
-
-            try {
-                jc.parse(args);
-            } catch (ParameterException parameterException) {
-                System.err.println(parameterException.getMessage());
-                jc.usage();
-//                System.exit(1);
-            }
-
-        }
-        
-        @Parameter
-        private List<String> parameters = new ArrayList<>();
-
-        @Parameter(names = {"--irtg"}, required = true, description = "IRTG file")
-        private String irtgFile;
-
-        @Parameter(names = {"--sent", "--sentences"}, required = true, description = "File containing one sentence per line.")
-        private String sentenceFile;
-
-        @Parameter(names = {"-i", "--interpretation"}, required = false, description = "The interpretation to use.")
-        private String interpretation = "";
-
-        @Parameter(names = {"-o", "--output"}, description = "Output file.")
-        private String outputFile = "out.txt";
-
-        @Parameter(names = {"-c", "--comments"}, description = "Comments to this run that will be written into the output file.")
-        private String comments = "";
-
-        @Parameter(names = {"--viterbi"}, description = "Shows viterbi trees")
-        private Boolean viterbi = null;
-
-        @Parameter(names = {"--eval"}, description = "Saves the calculated trees one by one into this file.")
-        private boolean evalFile = false;
-
-        @Parameter(names = {"--usage", "--info", "info", "help", "--help", "-help"}, description = "Show this information.", help = true)
-        private boolean help = false;
-    }
 
 }
