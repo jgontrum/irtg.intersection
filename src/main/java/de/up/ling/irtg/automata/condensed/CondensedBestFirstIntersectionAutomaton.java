@@ -129,9 +129,14 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
                 int statePairID = agenda.removeFirst();
                 int rightState = stateToRightState.get(statePairID);
-                                        
-
-                // leftrule.parent() = final &  rr.parent = final
+                int leftState = stateToLeftState.get(statePairID);
+                
+                // If left & right state are final, leave the loop.
+                if (    right.getFinalStates().contains(rightState) 
+                        &&
+                        left.getFinalStates().contains(leftState)) {
+                    break;
+                }
 
 //                System.err.println("pop: " + statePairID + " = " 
 //                        + left.getStateForId(stateToLeftState.get(statePairID)) 
