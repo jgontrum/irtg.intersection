@@ -170,10 +170,10 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                     IntSet knownPartners = partners.get(rightRule.getParent());
 
                     if (knownPartners == null) {
-                        knownPartners = new IntArraySet(); // IntOpenHashSet
+                        knownPartners = new IntOpenHashSet(); // IntOpenHashSet | IntArraySet
                         partners.put(rightRule.getParent(), knownPartners);
                     }
-
+                    
                     knownPartners.add(leftRule.getParent());
                 });
 
