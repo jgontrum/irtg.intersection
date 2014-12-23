@@ -22,6 +22,8 @@ import de.up.ling.tree.ParseException;
 import de.up.ling.tree.Tree;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntOpenHashBigSet;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.BufferedReader;
@@ -169,7 +171,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                     IntSet knownPartners = partners.get(rightRule.getParent());
 
                     if (knownPartners == null) {
-                        knownPartners = new IntOpenHashSet();
+                        knownPartners = new IntArraySet(); // IntOpenHashSet
                         partners.put(rightRule.getParent(), knownPartners);
                     }
 
