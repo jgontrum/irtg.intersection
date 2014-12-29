@@ -23,6 +23,7 @@ import de.up.ling.tree.Tree;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntOpenHashBigSet;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.BufferedReader;
@@ -151,7 +152,8 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                     // only add, if a partner state has been found.
                     if (partners.containsKey(rightChildren[i])) {
                         // take the right-automaton label for each child and get the previously calculated left-automaton label from partners.
-                        remappedChildren.add(partners.get(rightChildren[i]));
+                        // ! IntSet must be duplicated to prevent the changing of collection that is iterated over.
+                        remappedChildren.add(new IntOpenHashSet(partners.get(rightChildren[i])));
                     }
                 }
 
@@ -174,7 +176,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                         partners.put(rightRule.getParent(), knownPartners);
                     }
                     
-                    knownPartners.add(leftRule.getParent());
+                    knownPartners.add(leftRule.getParent()); //! SET CHANGED!
                 });
 
             }
@@ -381,6 +383,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                             }
                         } else if (showViterbiTrees) {
                             if (treeOut != null) {
+                                System.err.println(((Tree) irtg.getInterpretation("tree").interpret(result.viterbi())).toLispString() + "\n");
                                 treeOut.write(((Tree) irtg.getInterpretation("tree").interpret(result.viterbi())).toLispString() + "\n");
                                 treeOut.flush();
                             }
