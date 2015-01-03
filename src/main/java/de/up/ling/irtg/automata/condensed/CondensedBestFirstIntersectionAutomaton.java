@@ -153,12 +153,12 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                         if (partners == null) {
                             continue rightRuleLoop;
                         } else {
-                            remappedChildren.add(partners);
+                            remappedChildren.add(new IntOpenHashSet(partners)); //!(1) Make a copy of partners, it could be changed while iterating over it
                         }
                     }
 
                     left.foreachRuleBottomUpForSets(rightRule.getLabels(right), remappedChildren, leftToRightSignatureMapper, leftRule -> {
-                        Rule rule = combineRules(leftRule, rightRule);
+                        Rule rule = combineRules(leftRule, rightRule); //!(1) 'partners' could be changed here (-> addStatePair)
                         storeRule(rule);
                         
 //                        System.err.println("Rule: " + rule.toString());
@@ -292,7 +292,8 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                     + "2. Sentences\n"
                     + "3. Interpretation\n"
                     + "4. Output file\n"
-                    + "5. Comments");
+                    + "5. Comments\n"
+                    + "6. Treefile (optional)");
             System.exit(1);
         }
 
@@ -418,6 +419,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                         times += (timestamp[3] - timestamp[2]) / 1000000;
                     } catch (Exception ex) {
                         System.err.println("Error while intersecting: " + ex.getMessage());
+                        ex.printStackTrace(System.err);
                     }
                     
                 }

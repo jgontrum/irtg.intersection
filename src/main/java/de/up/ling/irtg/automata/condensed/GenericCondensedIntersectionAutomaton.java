@@ -286,7 +286,8 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                     + "2. Sentences\n"
                     + "3. Interpretation\n"
                     + "4. Output file\n"
-                    + "5. Comments");
+                    + "5. Comments\n"
+                    + "6. Treefile (optional)");
             System.exit(1);
         }
 
