@@ -12,10 +12,10 @@ import de.up.ling.irtg.algebra.Algebra;
 import de.up.ling.irtg.algebra.ParserException;
 import de.up.ling.irtg.automata.Rule;
 import de.up.ling.irtg.automata.TreeAutomaton;
+import de.up.ling.irtg.automata.astar.AStarEdgeEvaluator;
 import de.up.ling.irtg.automata.astar.AStarEstimator;
 import de.up.ling.irtg.automata.astar.AlgebraStructureSummary;
 import de.up.ling.irtg.automata.astar.SXAlgebraStructureSummary;
-import de.up.ling.irtg.automata.astar.AStarEdgeEvaluator;
 import de.up.ling.irtg.automata.astar.SXOutside;
 import de.up.ling.irtg.automata.astar.SXSummarizer;
 import de.up.ling.irtg.automata.astar.Summarizer;
@@ -27,6 +27,7 @@ import de.up.ling.irtg.util.ArrayInt2IntMap;
 import de.up.ling.irtg.util.IntInt2IntMap;
 import de.up.ling.irtg.util.Util;
 import de.up.ling.tree.Tree;
+import edu.stanford.nlp.util.BinaryHeapPriorityQueue;
 import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
 import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -45,8 +46,9 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
-import edu.stanford.nlp.util.BinaryHeapPriorityQueue;
+import java.util.Set;
 
 /**
  *
@@ -68,7 +70,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
         this.left = left;
         this.right = right;
-        
+
         this.edgeEvaluator = edgeEvaluator;
 
         stateToLeftState = new ArrayInt2IntMap();
@@ -76,7 +78,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
         this.leftToRightSignatureMapper = sigMapper;
         stateMapping = new IntInt2IntMap();
-        
+
         viterbiScore = new Int2DoubleOpenHashMap();
     }
 
@@ -86,19 +88,20 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
             isExplicit = true;
 
             getStateInterner().setTrustingMode(true);
-            
+
             right.makeAllRulesCondensedExplicit();
 
             BinaryHeapPriorityQueue<Integer> agenda = new BinaryHeapPriorityQueue<>();
 
-            IntSet seenStates = new IntOpenHashSet();
+            IntSet seenStates = new IntOpenHashSet();       // all states that have ever been added to the agenda
+            IntSet removedStates = new IntOpenHashSet();    // all states that have ever been dequeued from the agenda
 
             // initialize agenda with nullary rules
             int[] emptyChildren = new int[0];
 
             for (CondensedRule rightRule : right.getCondensedRulesBottomUpFromExplicit(emptyChildren)) {
 //                System.err.println("right: " + rightRule.toString(right));
-                
+
                 IntSet rightLabels = rightRule.getLabels(right);
                 for (int rightLabel : rightLabels) {
                     int leftLabel = leftToRightSignatureMapper.remapBackward(rightLabel);
@@ -106,13 +109,13 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 //                        System.err.println("left: " + leftRule.toString(left));
                         Rule rule = combineRules(leftRule, rightRule);
                         storeRule(rule);
-                        
+
                         if (Math.log(rule.getWeight()) > viterbiScore.getOrDefault(rule.getParent(), Double.NEGATIVE_INFINITY)) {
                             viterbiScore.put(rule.getParent(), Math.log(rule.getWeight()));
                         }
-                        
+
                         double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), rule.getWeight());
-                        
+
                         agenda.add(rule.getParent(), estimate);
                         seenStates.add(rule.getParent());
 //                        System.err.println("Addding " + rule.getParent() + " with estimate " + estimate);
@@ -123,6 +126,9 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
             // iterate until agenda is empty
             List<IntSet> remappedChildren = new ArrayList<IntSet>();
+            
+//            List<Rule> ruleTokens = new ArrayList<>();
+//            Set<Rule> ruleTypes = new HashSet<>();
 
             while (!agenda.isEmpty()) {
 //                System.err.println("ag: " + agenda);
@@ -131,17 +137,18 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                 int rightState = stateToRightState.get(statePairID);
                 int leftState = stateToLeftState.get(statePairID);
                 
+                // register statePairID as "removed from agenda"
+                removedStates.add(statePairID);
+
                 // If left & right state are final, leave the loop.
-                if (    right.getFinalStates().contains(rightState) 
-                        &&
-                        left.getFinalStates().contains(leftState)) {
+                if (right.getFinalStates().contains(rightState)
+                        && left.getFinalStates().contains(leftState)) {
                     break;
                 }
 
 //                System.err.println("pop: " + statePairID + " = " 
 //                        + left.getStateForId(stateToLeftState.get(statePairID)) 
 //                        + ", " + right.getStateForId(stateToRightState.get(statePairID)));
-
                 rightRuleLoop:
                 for (CondensedRule rightRule : right.getCondensedRulesForRhsState(rightState)) {
                     remappedChildren.clear();
@@ -159,19 +166,28 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
                     left.foreachRuleBottomUpForSets(rightRule.getLabels(right), remappedChildren, leftToRightSignatureMapper, leftRule -> {
                         Rule rule = combineRules(leftRule, rightRule); //!(1) 'partners' could be changed here (-> addStatePair)
-                        storeRule(rule);
+//                        
+//                        ruleTokens.add(rule);
+//                        ruleTypes.add(rule);
+//                        
+//                        if( ruleTokens.size() % 100000 == 0 ) {
+//                            System.err.println("rules: " + ruleTokens.size() + " tokens, " + ruleTypes.size() + " types (ratio " + ((double) ruleTokens.size())/ruleTypes.size() );
+//                        }
                         
+                        
+                        
+                        storeRule(rule);
+
 //                        System.err.println("Rule: " + rule.toString());
 //                        System.err.println("Current parent: " + rule.getParent());
-                        
                         double insideScore = Math.log(rule.getWeight());
-                        
+
                         for (int child : rule.getChildren()) {
 //                            System.err.println("Current child: " + child);
                             assert viterbiScore.containsKey(child);
                             insideScore += viterbiScore.get(child);
                         }
-                        
+
                         double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), insideScore);
 //                        System.err.println("Inside:   " + insideScore);
 //                        System.err.println("Estimate: " + estimate);
@@ -179,9 +195,15 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                         if (insideScore > viterbiScore.getOrDefault(rule.getParent(), Double.NEGATIVE_INFINITY)) {
                             viterbiScore.put(rule.getParent(), insideScore);
                         }
-                        
+
+                        // add new parent state to chart
                         seenStates.add(rule.getParent());
-                        agenda.relaxPriority(rule.getParent(), estimate);
+                        
+                        // if parent state is new or still on the agenda,
+                        // give it a chance to move closer to the front of the agenda
+                        if( ! removedStates.contains(rule.getParent())) {
+                            agenda.relaxPriority(rule.getParent(), estimate);
+                        }
                     });
                 }
             }
@@ -200,12 +222,12 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
         return finalStates;
     }
-    
+
     private void collectStatePairs(IntSet leftStates, IntSet rightStates, IntSet outStates) {
-        for( int l : leftStates ) {
-            for( int r : rightStates ) {
+        for (int l : leftStates) {
+            for (int r : rightStates) {
                 int pair = stateMapping.get(r, l);
-                if( pair != 0 ) {
+                if (pair != 0) {
                     outStates.add(pair);
                 }
             }
@@ -241,7 +263,6 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
             ret = addState(new Pair(left.getStateForId(leftState), right.getStateForId(rightState)));
 
 //            System.err.println("new state " + ret + ": " + getStateForId(ret));
-
             stateMapping.put(rightState, leftState, ret);
             stateToLeftState.put(ret, leftState);
             stateToRightState.put(ret, rightState);
@@ -266,7 +287,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
     public boolean isBottomUpDeterministic() {
         return left.isBottomUpDeterministic() && right.isBottomUpDeterministic();
     }
-    
+
     /**
      * Function to test the efficiency of this intersection algorithm by parsing
      * each sentence in a text file with a given IRTG. Args:
@@ -286,7 +307,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
     public static void main(String[] args) throws FileNotFoundException, de.up.ling.tree.ParseException, IOException, ParserException, de.up.ling.irtg.codec.ParseException {
         // Prepare command line parser
 //        CommandLineOptions cli = new CommandLineOptions(args);
-        
+
         if (args.length < 5) {
             System.err.println("1. IRTG\n"
                     + "2. Sentences\n"
@@ -306,7 +327,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
         long totalChartTime = 0;
         long totalViterbiTime = 0;
         boolean showViterbiTrees = false;
-        
+
         // If there are 6 arguments, save viterbi trees
         if (args.length == 6) {
             showViterbiTrees = true;
@@ -347,13 +368,13 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                     + "Comments   : " + comments + "\n"
                     + "CPU-Time   : " + useCPUTime + "\n\n");
             out.flush();
-            
+
             BufferedWriter treeOut = null;
             if (treeFile != "") {
                 FileWriter treeOutstream = new FileWriter(new File(treeFile));
                 treeOut = new BufferedWriter(treeOutstream);
             }
-            
+
             try {
                 // setting up inputstream for the sentences
                 FileInputStream instream = new FileInputStream(new File(sentencesFilename));
@@ -366,7 +387,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                 // A* objects
                 AlgebraStructureSummary<Integer, SXOutside> structureSummarizer = new SXAlgebraStructureSummary();
                 AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(structureSummarizer, irtg.getAutomaton());
-                
+
                 while ((sentence = br.readLine()) != null) {
                     try {
                         ++sentences;
@@ -390,7 +411,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                                         edgeEvaluator
                                 );
                         result.makeAllRulesExplicit();
-                        
+
                         updateBenchmark(timestamp, 3, useCPUTime, benchmarkBean);
 
                         long thisChartTime = (timestamp[3] - timestamp[2]);
@@ -421,7 +442,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                         System.err.println("Error while intersecting: " + ex.getMessage());
                         ex.printStackTrace(System.err);
                     }
-                    
+
                 }
                 out.write("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n Parsed " + sentences + " sentences in " + times + "ms. \n");
                 out.flush();
