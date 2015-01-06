@@ -153,7 +153,7 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                     if (partners.containsKey(rightChildren[i])) {
                         // take the right-automaton label for each child and get the previously calculated left-automaton label from partners.
                         // ! IntSet must be duplicated to prevent the changing of collection that is iterated over.
-                        remappedChildren.add(new IntOpenHashSet(partners.get(rightChildren[i])));
+                        remappedChildren.add(new IntArraySet(partners.get(rightChildren[i])));
                     }
                 }
 
