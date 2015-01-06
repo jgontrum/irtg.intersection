@@ -31,6 +31,7 @@ import edu.stanford.nlp.util.BinaryHeapPriorityQueue;
 import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
 import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.BufferedReader;
@@ -160,7 +161,7 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                         if (partners == null) {
                             continue rightRuleLoop;
                         } else {
-                            remappedChildren.add(new IntOpenHashSet(partners)); //!(1) Make a copy of partners, it could be changed while iterating over it
+                            remappedChildren.add(new IntArraySet(partners)); //!(1) Make a copy of partners, it could be changed while iterating over it
                         }
                     }
 
