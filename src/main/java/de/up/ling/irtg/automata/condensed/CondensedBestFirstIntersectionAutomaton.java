@@ -57,8 +57,8 @@ import java.util.Set;
  */
 public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> extends TreeAutomaton<Pair<LeftState, RightState>> {
 
-    private final TreeAutomaton<RightState> left;
-    private final CondensedTreeAutomaton<LeftState> right;
+    private final TreeAutomaton<LeftState> left;
+    private final CondensedTreeAutomaton<RightState> right;
     private final Int2IntMap stateToLeftState;
     private final Int2IntMap stateToRightState;
     private final SignatureMapper leftToRightSignatureMapper;
@@ -66,11 +66,11 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
     private final EdgeEvaluator edgeEvaluator;
     private final Int2DoubleMap viterbiScore;
 
-    public CondensedBestFirstIntersectionAutomaton(CondensedTreeAutomaton<LeftState> left, TreeAutomaton<RightState> right, SignatureMapper sigMapper, EdgeEvaluator edgeEvaluator) {
+    public CondensedBestFirstIntersectionAutomaton(TreeAutomaton<LeftState> left, CondensedTreeAutomaton<RightState> right, SignatureMapper sigMapper, EdgeEvaluator edgeEvaluator) {
         super(left.getSignature()); // TODO = should intersect this with the (remapped) right signature
 
-        this.left = right;
-        this.right = left;
+        this.left = left;
+        this.right = right;
 
         this.edgeEvaluator = edgeEvaluator;
 
@@ -406,8 +406,8 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
                         TreeAutomaton result
                                 = new CondensedBestFirstIntersectionAutomaton<>(
-                                        inv,
                                         irtg.getAutomaton(),
+                                        inv,
                                         new IdentitySignatureMapper(irtg.getAutomaton().getSignature()),
                                         edgeEvaluator
                                 );
