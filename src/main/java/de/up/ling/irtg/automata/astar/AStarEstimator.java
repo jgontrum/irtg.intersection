@@ -15,6 +15,7 @@ import de.up.ling.irtg.codec.InputCodec;
 import de.up.ling.irtg.codec.IrtgInputCodec;
 import de.up.ling.irtg.codec.ParseException;
 import de.up.ling.irtg.util.MutableDouble;
+import de.up.ling.irtg.util.Util;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -25,13 +26,18 @@ import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -49,8 +55,8 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     private final boolean DEBUG = false;
 
     // Caches
-    private final List<Object2DoubleMap<OutsideSummary>> outsideCaches; 
-    private final List<Object2DoubleMap<InsideSummary>> insideCaches;  
+    private List<Object2DoubleMap<OutsideSummary>> outsideCaches; 
+    private List<Object2DoubleMap<InsideSummary>> insideCaches;  
 
  
     public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar) {
@@ -63,6 +69,31 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         sortRulesByRHS();
         collectNullarySymbols();
         initialiseCaches();
+    }
+    
+    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar, String cacheFile) {
+        this.estimator = estimator;
+        this.grammar = grammar;
+        
+        sortRulesByRHS();
+        collectNullarySymbols();
+        
+        // Read in serialized caches
+        try {
+            FileInputStream fileIn = new FileInputStream(cacheFile);
+            ObjectInputStream in = new ObjectInputStream(fileIn);
+            insideCaches = (List<Object2DoubleMap<InsideSummary>>) in.readObject();
+            outsideCaches = (List<Object2DoubleMap<OutsideSummary>>) in.readObject();
+            in.close();
+            fileIn.close();
+        } catch (Exception i) {
+            System.err.println("Could not read cache from '" + cacheFile + "'");
+            Logger.getLogger(AStarEstimator.class.getName()).log(Level.SEVERE, null, i);
+            
+            outsideCaches = new ArrayList<>();
+            insideCaches = new ArrayList<>();
+            initialiseCaches();
+        } 
     }
     
     /**
@@ -289,13 +320,56 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
 
     }
 
+    // Creates the cache for a given outside summary and all states
+    // and saves it in the specified path.
+    public void saveCaches(OutsideSummary outsideSummary, String path) {
+        // precalculate
+        grammar.getAllStates().forEach(state -> {
+            estimateOutside(state, outsideSummary);
+        });
+        // save
+        try {
+            FileOutputStream fileOut = new FileOutputStream(path);
+            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+            out.writeObject(insideCaches);
+            out.writeObject(outsideCaches);
+            out.close();
+            fileOut.close();
+        } catch (IOException i) {
+            System.err.println("Could not save cache in '" + path + "'");
+            i.printStackTrace(System.err);
+        }
+    }
     
-    
-    
-    
+
     
     // Main method for testing purposes only 
     public static void main(String[] args) throws ParseException, IOException, ParserException {
+        // <Caching tests>
+        if (args.length != 3) {
+            System.err.println("1. Path to IRTG, 2. Max length, 3. Path to write caches in.");
+            System.exit(1);
+        }
+        String irtgFilename = args[0];
+        
+        // Create the IRTG from file
+        System.err.println("irtgFilename: " + irtgFilename);
+        InputCodec<InterpretedTreeAutomaton> codec = InputCodec.getInputCodecByExtension(Util.getFilenameExtension(irtgFilename));
+        InterpretedTreeAutomaton irtg = codec.read(new FileInputStream(new File(irtgFilename)));
+        
+        // Initialize the AStarEstimator
+        AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(new SXAlgebraStructureSummary(), irtg.getAutomaton());
+        
+        // Save as cache
+        astar.saveCaches(new SXOutside(0, Integer.parseInt(args[1])), args[2]);
+       
+        // Read in again
+//        AStarEstimator<String, Integer, SXOutside> astar2 = new AStarEstimator(estimator, irtg.getAutomaton(), args[2]);
+        
+        // <\ Caching test>
+
+        // General tests: 
+        /*
         if (args.length == 2) {
             String irtgFilename = args[0];
             String sentencesFilename = args[1];
@@ -361,8 +435,6 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             System.err.println("Len:" + args.length);
 
         }
-        
-
-        
+        */
     }
 }

@@ -315,7 +315,8 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                     + "3. Interpretation\n"
                     + "4. Output file\n"
                     + "5. Comments\n"
-                    + "6. Treefile (optional)");
+                    + "6. Treefile (optional)\n"
+                    + "7. Precalculated caches");
             System.exit(1);
         }
 
@@ -325,14 +326,18 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
         String outputFile = args[3];
         String comments = args[4];
         String treeFile = "";
+        String cacheFile = "";
         long totalChartTime = 0;
         long totalViterbiTime = 0;
         boolean showViterbiTrees = false;
 
         // If there are 6 arguments, save viterbi trees
-        if (args.length == 6) {
+        if (args.length >= 6) {
             showViterbiTrees = true;
             treeFile = args[5];
+        }
+        if (args.length >=7) {
+            cacheFile = args[6];
         }
 
         // initialize CPU-time benchmarking
@@ -387,7 +392,15 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
                 // A* objects
                 AlgebraStructureSummary<Integer, SXOutside> structureSummarizer = new SXAlgebraStructureSummary();
-                AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(structureSummarizer, irtg.getAutomaton());
+                
+                // Use precalculated caches or not
+                AStarEstimator<String, Integer, SXOutside> astar;
+                if (cacheFile.length() > 0) {
+                    astar = new AStarEstimator(structureSummarizer, irtg.getAutomaton(), cacheFile);
+                } else {
+                    astar = new AStarEstimator(structureSummarizer, irtg.getAutomaton());
+                }
+                
 
                 while ((sentence = br.readLine()) != null) {
                     try {
