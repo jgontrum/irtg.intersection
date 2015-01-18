@@ -6,13 +6,15 @@
 
 package de.up.ling.irtg.automata.astar;
 
+import java.io.Serializable;
+
 /**
  * OutsideSummary from a span over a string. 
  * Contains only the number of words to the left of this object
  * and to the right.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
-public class SXOutside {
+public class SXOutside implements Serializable {
     private int wordsLeft;
     private int wordsRight;
 
