@@ -100,6 +100,36 @@ public class IntTrie<E> implements Serializable {
         }
     }
 
+/**
+     * Moves one step to the right and returns the sub-trie there.
+     * 
+     * @param key
+     * @return 
+     */
+    public IntTrie<E> getOneStep(int key) {
+        return nextStep.get(key);
+    }
+    
+    /**
+     * Returns the set of keys for which the trie can take one step
+     * to the right.
+     * 
+     * @return 
+     */
+    public IntSet getOneStepKeys() {
+        return nextStep.keySet();
+    }
+    
+    /**
+     * Returns the value stored at this node of the trie.
+     * 
+     * @return 
+     */
+    public E getValue() {
+        return value;
+    }
+
+
     public void foreachValueForKeySets(List<IntSet> keySets, Consumer<E> fn) {
         foreachValueForKeySets(0, keySets, fn);
     }
