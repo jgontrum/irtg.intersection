@@ -460,7 +460,16 @@ public abstract class TreeAutomaton<State> implements Serializable {
         }
     }
 
-    protected IntTrie<Int2ObjectMap<Collection<Rule>>> getExplicitRulesBottomUp() {
+    /**
+     * Returns the trie in which all rules are organized for fast
+     * bottom-up access. Using this method directly may sometimes
+     * help you write more efficient code, but note that the internal
+     * representation may change, so don't use this unless you
+     * know what you're doing.
+     * 
+     * @return 
+     */
+    public IntTrie<Int2ObjectMap<Set<Rule>>> getExplicitRulesBottomUp() {
         processNewBottomUpRules();
         return (IntTrie) explicitRulesBottomUp;
     }
