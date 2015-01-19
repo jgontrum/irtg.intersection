@@ -513,9 +513,8 @@ public abstract class TreeAutomaton<State> implements Serializable {
             rulesForRhsState = new Int2ObjectOpenHashMap<List<Iterable<Rule>>>();
             final BitSet visitedInEntry = new BitSet(getStateInterner().getNextIndex());
 
-            getExplicitRulesBottomUp().foreachWithKeys(new IntTrie.EntryVisitor<Int2ObjectMap<Collection<Rule>>>() {
-
-                public void visit(IntList keys, Int2ObjectMap<Collection<Rule>> value) {
+            getExplicitRulesBottomUp().foreachWithKeys(new IntTrie.EntryVisitor<Int2ObjectMap<Set<Rule>>>() {
+                public void visit(IntList keys, Int2ObjectMap<Set<Rule>> value) {
                     visitedInEntry.clear();
 
                     for (int state : keys) {
@@ -559,7 +558,7 @@ public abstract class TreeAutomaton<State> implements Serializable {
      * @return
      */
     protected Collection<Rule> getRulesBottomUpFromExplicit(int labelId, int[] childStates) {
-        Int2ObjectMap<Collection<Rule>> entry = getExplicitRulesBottomUp().get(childStates);
+        Int2ObjectMap<Set<Rule>> entry = getExplicitRulesBottomUp().get(childStates);
 
         if (entry != null) {
             Collection<Rule> set = entry.get(labelId);
@@ -1146,7 +1145,7 @@ public abstract class TreeAutomaton<State> implements Serializable {
             return true;
         }
 
-        Int2ObjectMap<Collection<Rule>> entry = getExplicitRulesBottomUp().get(childStates);
+        Int2ObjectMap<Set<Rule>> entry = getExplicitRulesBottomUp().get(childStates);
 
         if (entry == null) {
             return false;

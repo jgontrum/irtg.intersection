@@ -16,16 +16,12 @@ import de.up.ling.irtg.signature.SignatureMapper;
 import de.up.ling.irtg.util.ArrayMap;
 import de.up.ling.irtg.util.FastutilUtils;
 import de.up.ling.irtg.util.IntInt2IntMap;
-import de.up.ling.irtg.util.MutableBoolean;
+import de.up.ling.irtg.util.Util;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -59,9 +55,7 @@ public class CondensedEarleyIntersectionAutomaton<LeftState, RightState> extends
         finalStates = null;
     }
 
-    // TODO - hashcode, otherwise chart won't work
     private class Item {
-
         int cachedHashCode;
         CondensedRule rightRule;
         int dot;
@@ -72,12 +66,25 @@ public class CondensedEarleyIntersectionAutomaton<LeftState, RightState> extends
             dot = 0;
             leftRulePrefix = left.getExplicitRulesBottomUp();
 
+            computeHashcode();
+            
+//            cachedHashCode = 7;
+//            cachedHashCode = 73 * cachedHashCode + rightRule.hashCode();
+//            cachedHashCode = 73 * cachedHashCode + dot;
+//            cachedHashCode = 73 * cachedHashCode; // make room for addition of dot position
+            // leftRulePrefix is same for all items at this point,
+            // so no need to put it in hashcode
+        }
+        
+        private void computeHashcode() {
             cachedHashCode = 7;
             cachedHashCode = 73 * cachedHashCode + rightRule.hashCode();
             cachedHashCode = 73 * cachedHashCode + dot;
             cachedHashCode = 73 * cachedHashCode; // make room for addition of dot position
             // leftRulePrefix is same for all items at this point,
             // so no need to put it in hashcode
+            
+            cachedHashCode += leftRulePrefix.hashCode();
         }
 
         public int getNextRightChild() {
@@ -95,9 +102,11 @@ public class CondensedEarleyIntersectionAutomaton<LeftState, RightState> extends
                 Item ret = new Item(rightRule);
                 ret.leftRulePrefix = next;
                 ret.dot = dot + 1;
+                
+                ret.computeHashcode();
 
-                ret.cachedHashCode = cachedHashCode + 73; // update "dot" part of hashcode to new 73*dot
-                ret.cachedHashCode += 11 * leftState;       // identify path within left rule trie
+//                ret.cachedHashCode = cachedHashCode + 73; // update "dot" part of hashcode to new 73*dot
+//                ret.cachedHashCode += 11 * leftState;       // identify path within left rule trie
 
                 return ret;
             } else {
@@ -155,6 +164,10 @@ public class CondensedEarleyIntersectionAutomaton<LeftState, RightState> extends
             return true;
         }
 
+        @Override
+        public String toString() {
+            return "<<" + rightRule.toString(right, dot) + " with next " + Util.mapSet(getNextLeftStates(), q -> left.getStateForId(q)) + ">>";
+        }        
     }
 
     private class Chart {
@@ -179,7 +192,7 @@ public class CondensedEarleyIntersectionAutomaton<LeftState, RightState> extends
                 completeItems.put(item.rightRule.getParent(), itemsHere);
             }
             
-            System.err.println("* add/complete " + itemsHere.size());
+//            System.err.println("* add/complete " + itemsHere.size());
             return itemsHere.add(item);
         }
         
@@ -195,6 +208,25 @@ public class CondensedEarleyIntersectionAutomaton<LeftState, RightState> extends
                 return addIncomplete(item);
             }
         }
+
+        @Override
+        public String toString() {
+            StringBuffer ret = new StringBuffer();
+            
+            for( int qr : completeItems.keySet() ) {
+                ret.append("\nComplete items for right parent " + right.getStateForId(qr) + ":\n");
+                
+                for( Item it : completeItems.get(qr)) {
+                    ret.append("  ** " + it.toString() + "\n");
+                }
+            }
+            
+            // TODO - add incomplete
+            
+            return ret.toString();
+        }
+        
+        
     }
     
     /*
@@ -309,6 +341,8 @@ public class CondensedEarleyIntersectionAutomaton<LeftState, RightState> extends
 
             while (!agenda.isEmpty()) {
                 Item it = agenda.remove();
+                System.err.println("\n\n----\n\nremove item: " + it);
+                System.err.println("chart right now:\n" + chart);
 
                 if (it.isComplete()) {
                     it.foreachLeftRuleHere(it.rightRule.getLabels(right), leftRule -> {

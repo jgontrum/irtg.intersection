@@ -362,6 +362,10 @@ public abstract class GenericCondensedIntersectionAutomaton<LeftState, RightStat
                         System.err.println("\nSentence #" + sentences);
                         System.err.println("Current sentence: " + sentence);
                         updateBenchmark(timestamp, 2, useCPUTime, benchmarkBean);
+                        
+                        if( sentences > 5 ) {
+                            System.exit(0);
+                        }
 
                         // intersect
                         TreeAutomaton decomp = alg.decompose(alg.parseString(sentence));
