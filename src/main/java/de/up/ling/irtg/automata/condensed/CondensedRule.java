@@ -3,8 +3,8 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package de.up.ling.irtg.automata.condensed;
+
 import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.tree.Tree;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -17,19 +17,20 @@ import java.util.Set;
  * @author gontrum
  */
 public class CondensedRule {
+
     private int labelSetID;
     private int parent;
     private int[] children;
     private double weight;
     private Object extra;
-    
+
     public CondensedRule(int parent, int labelSetID, int[] children, double weight) {
         this.parent = parent;
         this.labelSetID = labelSetID;
         this.children = children;
         this.weight = weight;
     }
-    
+
     public int[] getChildren() {
         return children;
     }
@@ -37,19 +38,20 @@ public class CondensedRule {
     public int getLabelSetID() {
         return labelSetID;
     }
-    
+
     public IntSet getLabels(CondensedTreeAutomaton auto) {
         return auto.getLabelsForID(labelSetID);
     }
-    
+
     /**
      * Returns a Set of Strings for the labels of this rule.
+     *
      * @param auto
      * @return
      */
     public Collection<String> getLabelStrings(CondensedTreeAutomaton auto) {
         Set<String> ret = new HashSet<String>();
-        for(int label : getLabels(auto)) {
+        for (int label : getLabels(auto)) {
             ret.add(auto.getSignature().resolveSymbolId(label));
         }
         return ret;
@@ -63,7 +65,7 @@ public class CondensedRule {
     public void setParent(int parent) {
         this.parent = parent;
     }
-   
+
     public double getWeight() {
         return weight;
     }
@@ -95,7 +97,7 @@ public class CondensedRule {
     public int getArity() {
         return children.length;
     }
-    
+
     @Override
     public String toString() {
         boolean first = true;
@@ -119,24 +121,36 @@ public class CondensedRule {
         ret.append(" [" + weight + "]");
         return ret.toString();
     }
-    
-    
+
     public String toString(CondensedTreeAutomaton auto) {
         return toString(auto, auto.getFinalStates().contains(parent));
     }
 
     public String toString(CondensedTreeAutomaton auto, boolean parentIsFinal) {
+        return toString(auto, parentIsFinal, -1);
+    }
+
+    public String toString(CondensedTreeAutomaton auto, int dotPosition) {
+        return toString(auto, auto.getFinalStates().contains(parent), dotPosition);
+    }
+
+    public String toString(CondensedTreeAutomaton auto, boolean parentIsFinal, int dotPosition) {
         boolean first = true;
         StringBuilder ret = new StringBuilder(Tree.encodeLabel(auto.getStateForId(parent).toString()) + (parentIsFinal ? "!" : "") + " -> {");
-        
-        for (String label : getLabelStrings(auto)) { 
-            ret.append(label + ",");
+
+        Collection<String> labels = getLabelStrings(auto);
+        if (labels.size() > 5) {
+            ret.append("[" + labels.size() + " labels]");
+        } else {
+            for (String label : getLabelStrings(auto)) {
+                ret.append(label + ",");
+            }
         }
 
-        if (!getLabelStrings(auto).isEmpty()) { 
-            ret.deleteCharAt(ret.length()-1);
+        if (!getLabelStrings(auto).isEmpty()) {
+            ret.deleteCharAt(ret.length() - 1);
         }
-        
+
         ret.append("}");
         if (children.length > 0) {
             ret.append("(");
@@ -148,7 +162,15 @@ public class CondensedRule {
                     ret.append(", ");
                 }
 
+                if (dotPosition == child) {
+                    ret.append("* ");
+                }
+
                 ret.append((child == 0) ? "null" : Tree.encodeLabel(auto.getStateForId(child).toString()));
+            }
+
+            if (dotPosition == children.length) {
+                ret.append("* ");
             }
 
             ret.append(")");
@@ -157,5 +179,5 @@ public class CondensedRule {
         ret.append(" [" + weight + "]");
         return ret.toString();
     }
-    
+
 }

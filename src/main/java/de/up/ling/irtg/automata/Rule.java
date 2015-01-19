@@ -22,6 +22,7 @@ import java.util.List;
  * @author koller
  */
 public class Rule implements Serializable {
+
     private int parent;
     private int label;
     private int[] children;
@@ -44,7 +45,7 @@ public class Rule implements Serializable {
     public int getLabel() {
         return label;
     }
-    
+
     public String getLabel(TreeAutomaton auto) {
         return auto.getSignature().resolveSymbolId(label);
     }
@@ -68,19 +69,19 @@ public class Rule implements Serializable {
 
     /**
      * Retrieves the auxiliary information from this rule.
-     * 
-     * @see #setExtra(java.lang.Object) 
-     * @return 
+     *
+     * @see #setExtra(java.lang.Object)
+     * @return
      */
     public Object getExtra() {
         return extra;
     }
 
     /**
-     * Stores auxiliary information within this rule. Do not use this
-     * unless you know what you're doing.
-     * 
-     * @param extra 
+     * Stores auxiliary information within this rule. Do not use this unless you
+     * know what you're doing.
+     *
+     * @param extra
      */
     public void setExtra(Object extra) {
         this.extra = extra;
@@ -89,7 +90,7 @@ public class Rule implements Serializable {
     public int getArity() {
         return children.length;
     }
-    
+
     @Override
     public String toString() {
         return parent + " -> " + label + "/" + Arrays.toString(children);
@@ -100,6 +101,10 @@ public class Rule implements Serializable {
     }
 
     public String toString(TreeAutomaton auto, boolean parentIsFinal) {
+        return toStringWithDot(auto, parentIsFinal, -1);
+    }
+
+    public String toStringWithDot(TreeAutomaton auto, boolean parentIsFinal, int dotPosition) {
         boolean first = true;
         StringBuilder ret = new StringBuilder(Tree.encodeLabel(auto.getStateForId(parent).toString()) + (parentIsFinal ? "!" : "") + " -> " + Tree.encodeLabel(getLabel(auto)));
 
@@ -113,7 +118,15 @@ public class Rule implements Serializable {
                     ret.append(", ");
                 }
 
+                if (dotPosition == child) {
+                    ret.append("* ");
+                }
+
                 ret.append((child == 0) ? "null" : Tree.encodeLabel(auto.getStateForId(child).toString()));
+            }
+
+            if (dotPosition == children.length) {
+                ret.append(" *");
             }
 
             ret.append(")");
@@ -122,15 +135,15 @@ public class Rule implements Serializable {
         ret.append(" [" + weight + "]");
         return ret.toString();
     }
-    
+
     public static List<String> rulesToStrings(Collection<Rule> rules, TreeAutomaton auto) {
         List<String> ret = new ArrayList<String>();
-        for( Rule rule : rules ) {
+        for (Rule rule : rules) {
             ret.add(rule.toString(auto));
         }
         return ret;
     }
-    
+
     private int computeHashCode() {
         int hash = 7;
         hash = 73 * hash + this.parent;
@@ -141,22 +154,21 @@ public class Rule implements Serializable {
 
     @Override
     public int hashCode() {
-        if( hashcode == -1 ) {
+        if (hashcode == -1) {
             hashcode = computeHashCode();
         }
-        
+
         return hashcode;
     }
 
     /**
-     * Compares two rules for equality. Rule weights are ignored
-     * in the comparison. Notice that this implementation of equals
-     * is only meaningful if the two rules belong to the same
-     * automaton, as otherwise states might be encoded by different
-     * interners.
-     * 
+     * Compares two rules for equality. Rule weights are ignored in the
+     * comparison. Notice that this implementation of equals is only meaningful
+     * if the two rules belong to the same automaton, as otherwise states might
+     * be encoded by different interners.
+     *
      * @param obj
-     * @return 
+     * @return
      */
     @Override
     public boolean equals(Object obj) {
@@ -178,16 +190,14 @@ public class Rule implements Serializable {
         }
         return true;
     }
-    
-    
 
     public static Collection<Integer> extractParentStates(Collection<Rule> rules) {
         IntList ret = new IntArrayList();
-        
+
         for (Rule rule : rules) {
             ret.add(rule.getParent());
         }
-        
+
         return ret;
     }
 }
