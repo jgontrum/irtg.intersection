@@ -11,6 +11,8 @@ import de.up.ling.irtg.automata.TreeAutomaton;
 import de.up.ling.irtg.signature.Signature;
 import de.up.ling.tree.Tree;
 import de.up.ling.tree.TreeVisitor;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,7 +93,12 @@ public class BinarizingAlgebra<E> extends Algebra<E> {
     
     public TreeAutomaton binarizeTreeAutomaton(TreeAutomaton<? extends Object> underlyingAutomaton) {
         ConcreteTreeAutomaton<String> ret = new ConcreteTreeAutomaton<String>();
-        for( int stateId : underlyingAutomaton.getAllStates() ) {
+        
+        // ensure states in ret are created with same id as in underlyingAutomaton
+        IntList allUnderlyingStates = new IntArrayList(underlyingAutomaton.getAllStates());
+        allUnderlyingStates.sort(null);
+        
+        for( int stateId : allUnderlyingStates ) {
             ret.addState(underlyingAutomaton.getStateForId(stateId).toString());
         }
         

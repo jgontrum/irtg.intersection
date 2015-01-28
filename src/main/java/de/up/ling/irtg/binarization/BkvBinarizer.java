@@ -78,7 +78,9 @@ public class BkvBinarizer {
 
         int ruleNumber = 1;
         for (Rule rule : irtg.getAutomaton().getRuleSet()) {
-//            log("\n\n\nbinarizing rule: " + rule.toString(irtg.getAutomaton()));
+            if(debug) {
+                System.err.println("\n\n\nbinarizing rule: " + rule.toString(irtg.getAutomaton()));
+            }
 
             RuleBinarization rb = binarizeRule(rule, irtg);
 
