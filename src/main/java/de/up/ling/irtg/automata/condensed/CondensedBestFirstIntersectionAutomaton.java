@@ -53,7 +53,7 @@ import java.util.Set;
 
 /**
  *
- * @author koller
+ * @author koller/gontrum
  */
 public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> extends TreeAutomaton<Pair<LeftState, RightState>> {
 
@@ -128,11 +128,8 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
             // iterate until agenda is empty
             List<IntSet> remappedChildren = new ArrayList<IntSet>();
             
-//            List<Rule> ruleTokens = new ArrayList<>();
-//            Set<Rule> ruleTypes = new HashSet<>();
 
             while (!agenda.isEmpty()) {
-//                System.err.println("ag: " + agenda);
 
                 int statePairID = agenda.removeFirst();
                 int rightState = stateToRightState.get(statePairID);
@@ -147,9 +144,6 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
                     break;
                 }
 
-//                System.err.println("pop: " + statePairID + " = " 
-//                        + left.getStateForId(stateToLeftState.get(statePairID)) 
-//                        + ", " + right.getStateForId(stateToRightState.get(statePairID)));
                 rightRuleLoop:
                 for (CondensedRule rightRule : right.getCondensedRulesForRhsState(rightState)) {
                     remappedChildren.clear();
@@ -167,31 +161,17 @@ public class CondensedBestFirstIntersectionAutomaton<LeftState, RightState> exte
 
                     left.foreachRuleBottomUpForSets(rightRule.getLabels(right), remappedChildren, leftToRightSignatureMapper, leftRule -> {
                         Rule rule = combineRules(leftRule, rightRule); //!(1) 'partners' could be changed here (-> addStatePair)
-//                        
-//                        ruleTokens.add(rule);
-//                        ruleTypes.add(rule);
-//                        
-//                        if( ruleTokens.size() % 100000 == 0 ) {
-//                            System.err.println("rules: " + ruleTokens.size() + " tokens, " + ruleTypes.size() + " types (ratio " + ((double) ruleTokens.size())/ruleTypes.size() );
-//                        }
-                        
-                        
                         
                         storeRule(rule);
 
-//                        System.err.println("Rule: " + rule.toString());
-//                        System.err.println("Current parent: " + rule.getParent());
                         double insideScore = Math.log(rule.getWeight());
 
                         for (int child : rule.getChildren()) {
-//                            System.err.println("Current child: " + child);
                             assert viterbiScore.containsKey(child);
                             insideScore += viterbiScore.get(child);
                         }
 
                         double estimate = edgeEvaluator.evaluate(leftRule.getParent(), rightRule.getParent(), insideScore);
-//                        System.err.println("Inside:   " + insideScore);
-//                        System.err.println("Estimate: " + estimate);
                         // Update viterbi score if needed
                         if (insideScore > viterbiScore.getOrDefault(rule.getParent(), Double.NEGATIVE_INFINITY)) {
                             viterbiScore.put(rule.getParent(), insideScore);
