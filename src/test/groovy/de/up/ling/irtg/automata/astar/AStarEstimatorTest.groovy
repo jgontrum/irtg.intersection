@@ -45,7 +45,6 @@ class AStarEstimatorTest {
         
         assert astar.estimateOutside(state1, os1) == Double.NEGATIVE_INFINITY;
         assert astar.estimateOutside(state2, os2) == 0.0;
-
     }
     
     
