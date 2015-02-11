@@ -11,11 +11,10 @@ import java.util.List;
 
 
 /**
- * Creates SX-Summary objects from Spans over an input string (StringAlgebra.Span)
+ * Creates SX-Summary objects from spans over an input string (StringAlgebra.Span)
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
 public class SXSummarizer implements Summarizer<StringAlgebra.Span, Integer, SXOutside>{
-//    private final SXEstimator estimator;
     private final int length;
     
     public SXSummarizer(List<String> words) {

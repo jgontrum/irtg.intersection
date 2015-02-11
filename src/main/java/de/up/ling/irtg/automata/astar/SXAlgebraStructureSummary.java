@@ -13,16 +13,33 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- *
+ * Provides methods to find the next Inside/Outside objects for a given Inside
+ * or Outside object.
+ * Since this class works for strings, the Inside object is simply an Integer.
+ * It represents the length of a span.
  * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  */
 public class SXAlgebraStructureSummary implements AlgebraStructureSummary<Integer, SXOutside> {
     
+    /**
+     * Iterates over all possible Outside and Inside objects for the given input data.
+     * The Outside object represents the LHS and the array of Inside objects the LHS,
+     * where the given outsideSummary is on position 'position'.
+     * 
+     * SXOutside_fn -> SXInside_0, ..., outsideSummary_position, ..., SXInside_arity-1
+     * Note: SXInside is represented as a simple Integer. The position of outsideSummary
+     * can be 0 or 'arity-1' as well.
+     * @param outsideSummary    //< The OS on the RHS
+     * @param symbol            //< Not used
+     * @param arity             //< Arity of the rule
+     * @param position          //< The position of outsideSummary on the RHS
+     * @param fn            
+     */
     @Override
     public void forEachRuleOutside(SXOutside outsideSummary, int symbol, int arity, int position, BiConsumer<SXOutside, Integer[]> fn) {
 
-        List<int[]> itemsLeft = new ArrayList<>(); ///< List of arrays of 'InsideSummaries' that are left to the current Outside Summary
-        Integer[] rhs = new Integer[arity]; ///< The actual RHS that we are building. The size does not change, but its content may do.
+        List<int[]> itemsLeft = new ArrayList<>();  ///< List of arrays of 'InsideSummaries' that are left to the current Outside Summary
+        Integer[] rhs = new Integer[arity];         ///< The actual RHS that we are building. The size does not change, but its content may do.
 
         // generate all possible ways to split the value of getWordsLeft() into 
         // an array of size position (that is the number of all inside summaries
@@ -79,6 +96,13 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<Intege
         });
     }
 
+    /**
+     * Iterates over all possible splits of insideSummary into Inside Summaries 
+     * (Integers). The number of possible splits is equal to 'arity'.
+     * @param insideSummary
+     * @param arity
+     * @param fn
+     */
     @Override
     public void forEachRuleInside(Integer insideSummary, int arity, Consumer<Integer[]> fn) {
         // SXInsides will be returned if and only if:
@@ -107,7 +131,7 @@ public class SXAlgebraStructureSummary implements AlgebraStructureSummary<Intege
      * @param completeOnly If true, the values of the tuple sum up to the value of 'remainingScore'.
      * @param fn 
      */
-    public static void generate(int nextPos, int remainingScore, int[] tuple, boolean completeOnly, Consumer<int[]> fn) {
+    private static void generate(int nextPos, int remainingScore, int[] tuple, boolean completeOnly, Consumer<int[]> fn) {
         if (nextPos < tuple.length) {
             for (int i = 1; i <= remainingScore; ++i) {
                 tuple[nextPos] = i;

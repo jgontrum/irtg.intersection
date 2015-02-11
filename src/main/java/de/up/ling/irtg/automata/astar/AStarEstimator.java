@@ -34,14 +34,64 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
- * @author gontrum
+ * Implementation of the A*-Algorithm. Uses a grammar and an AlgebraStructureSummary 
+ * to estimate an outside or inside score for a given grammar symbol and an inside/outside
+ * summary. 
+ * 
+ * ### How to use the AStarEstimator:
+ * 1. Needed classes
+ *    - InterpretedTreeAutomaton that represents a grammar.
+ *    - InsideSummary to represent values needed for the calculation
+ *      of an inside estimate (e.g. an integer for string spans).
+ *    - OutsideSummary to represent values needed for the calculation
+ *      of an outside estimate (e.g. the start and end position for string spans).
+ *    - AlgebraStructureSummary to find the next Inside/Outside objects
+ *      during an Inside/Outside estimation.
+ *    - AStarEstimator to estimate scores for grammar states and Inside/Outside 
+ *      objects.
+ *    - Summarizer to create InsideSummary and OutsideSummary objects
+ *      depending on the input it was initialized with.
+ * 
+ * 2. Scopus
+ *    While most objects are only created once per used algebra, 
+ *    the Summarizer must be created for every new input sentence,
+ *    since it can depend on the length of the input.
+ * 
+ * 3. Example (using string)
+ *    // Read IRTG from file:
+ *    InputCodec<InterpretedTreeAutomaton> codec = new IrtgInputCodec();
+ *    InterpretedTreeAutomaton irtg = codec.read(new FileInputStream(new File(irtgFilename)));
+ *    
+ *    // Create the AlgebraStructureSummary:
+ *    SXAlgebraStructureSummary estimator = new SXAlgebraStructureSummary();
+ * 
+ *    // Initialize the AStarEstimator (Integer is used as Inside-Class):
+ *    AStarEstimator<String, Integer, SXOutside> astar = new AStarEstimator(estimator, irtg.getAutomaton());
+ * 
+ *    // Create a Summarizer for each sentence:
+ *    SXSummarizer summarizer = new SXSummarizer(Arrays.asList(sentence_as_list));
+ *    
+ *    // Example for an Outside-object and state:
+ *    SXOutside os = summarizer.summarizeOutside(new StringAlgebra.Span(left, right));
+ *    int state = irtg.getAutomaton().getIdForState("NP");
+ *    
+ *    // Estimate outside:
+ *    double outsideEstimate = astar.estimateOutside(stateos, os);
+ * 
+ * 4. Adaption for other algebras:
+ *    If you want to use the AStarEstimator with an algebra, that is not
+ *    implemented yet, you have to implement the following interfaces:
+ *    1. InsideSummary & OutsideSummary 
+ *    2. Summarizer to create InsideSummary and OutsideSummary objects.
+ *    3. AlgebraStructureSummary (probably the hardest part).
+ * 
+ * @author Johannes Gontrum <gontrum@uni-potsdam.de>
  * @param <State>
  * @param <InsideSummary>
  * @param <OutsideSummary>
  */
 public class AStarEstimator<State, InsideSummary, OutsideSummary> {
-    private final AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator;
+    private final AlgebraStructureSummary<InsideSummary, OutsideSummary> structureSummary;
     private final TreeAutomaton<State> grammar;
     private Int2ObjectMap<Set<Rule>> rhsSymbolToRules;  //< maps a symbol to a set of rules, where it occurs on the rhs
     private IntSet nullarySymbols;                      //< set of all symbols, that are the parent of a 0-ary rule.
@@ -52,9 +102,13 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
     private List<Object2DoubleMap<OutsideSummary>> outsideCaches; 
     private List<Object2DoubleMap<InsideSummary>> insideCaches;  
 
- 
-    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar) {
-        this.estimator = estimator;
+    /**
+     * Default constructor that starts with an empty cache.
+     * @param structureSummary
+     * @param grammar 
+     */
+    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> structureSummary, TreeAutomaton<State> grammar) {
+        this.structureSummary = structureSummary;
         this.grammar = grammar;
         
         outsideCaches = new ArrayList<>();
@@ -65,8 +119,14 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         initialiseCaches();
     }
     
-    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> estimator, TreeAutomaton<State> grammar, String cacheFile) {
-        this.estimator = estimator;
+    /**
+     * Uses a precalculated cache from file.
+     * @param estimator
+     * @param grammar
+     * @param cacheFile 
+     */
+    public AStarEstimator(AlgebraStructureSummary<InsideSummary, OutsideSummary> structureSummary, TreeAutomaton<State> grammar, String cacheFile) {
+        this.structureSummary = structureSummary;
         this.grammar = grammar;
         
         sortRulesByRHS();
@@ -115,7 +175,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             stateCache.put(outsideSummary, Double.NEGATIVE_INFINITY);
             
             // Base case: summary is complete 
-            if (estimator.isOutsideSummaryComplete(outsideSummary)) {
+            if (structureSummary.isOutsideSummaryComplete(outsideSummary)) {
                 // if the state is the startsymbol of the grammar, return 0
                 double ret = grammar.getFinalStates().contains(state) ? 0 : Double.NEGATIVE_INFINITY;
                 
@@ -137,7 +197,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
                 for (int position = 0; position < r.getArity(); ++position) {
                     if (state == r.getChildren()[position]) {
                         // Getting Outside Summaries and a pairs of an Inside Summary and an Integer that shows the position of the IS
-                        estimator.forEachRuleOutside(outsideSummary, r.getLabel(), r.getArity(), position, (OutsideSummary os, InsideSummary[] insideSummaries) -> {
+                        structureSummary.forEachRuleOutside(outsideSummary, r.getLabel(), r.getArity(), position, (OutsideSummary os, InsideSummary[] insideSummaries) -> {
                             
                             double currentEstimate = Math.log(r.getWeight()); 
                             
@@ -196,7 +256,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             // Base case: 
             // If the current inside summary is terminal, return the 
             // weight of the best rule with the state as parent state.
-            if (estimator.isInsideSummaryTerminal(insideSummary)) {
+            if (structureSummary.isInsideSummaryTerminal(insideSummary)) {
                 if (isNullarySymbol(state)) {
                     // maximize over rules and return the best one.
                     double ret = 0;
@@ -220,7 +280,7 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
             // of the rules.
             MutableDouble score = new MutableDouble(Double.NEGATIVE_INFINITY);
             for (Rule r : grammar.getRulesTopDown(state)) {
-                estimator.forEachRuleInside(insideSummary, r.getArity(),
+                structureSummary.forEachRuleInside(insideSummary, r.getArity(),
                         newInsideSummaries -> {
                         
                             double currentEstimate = Math.log(r.getWeight());
@@ -244,8 +304,10 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         }
     }
     
-        // Datastructure functions
-    //   Build datastructures 
+    /**
+     * Maps each symbol to a set of rules, where it appears in the rhs.
+     * Crucial for the estimateOutside method.
+     */
     private void sortRulesByRHS() {
         // Calculation of the outside estimate requires access to rules that have 
         // a certain state on their rhs.
@@ -264,9 +326,9 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         }
     }
 
-    ////////////////////////////////////////////////////////////
-    /////////////// Private helper functions ///////////////////
-    ////////////////////////////////////////////////////////////
+    /**
+     * Create a set of symbols, that appear on the lhs of a 0-ary rule.
+     */
     private void collectNullarySymbols() {
         // collect all terminal symbols.
         nullarySymbols = new IntOpenHashSet();
@@ -303,15 +365,6 @@ public class AStarEstimator<State, InsideSummary, OutsideSummary> {
         } else {
             return new HashSet<>();
         }
-    }
-
-    private void printRhsSymbolToRules() {
-        rhsSymbolToRules.keySet().forEach(key -> {
-            rhsSymbolToRules.get(key).forEach(rule -> {
-                System.out.println(key + " |->  '" + rule.toString(grammar) + "'");
-            });
-        });
-
     }
 
     // Creates the cache for a given outside summary and all states
